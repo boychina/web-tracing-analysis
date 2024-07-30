@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+	<title>登录</title>
+	<link rel="stylesheet" href="./component/pear/css/pear.css" />
+	<link rel="stylesheet" href="./admin/css/other/login.css" />
+	<link rel="stylesheet" href="./static/admin/css/variables.css" />
+	<script>if (window.self != window.top) { top.location.reload();}</script>
+</head>
+
+<body>
+	<div class="login-page" style="background-image: url(./admin/images/background.svg)">
+		<div class="layui-row">
+			<div class="layui-col-sm6 login-bg layui-hide-xs">
+				<img class="login-bg-img" src="./admin/images/banner.png" alt="" />
+			</div>
+			<div class="layui-col-sm6 layui-col-xs12 login-form">
+				<div class="layui-form">
+					<div class="form-center">
+						<div class="form-center-box">
+							<div class="top-log-title">
+								<img class="top-log" src="http://www.layui-vue.com/assets/logo.685dda16.jpg" alt="" />
+								<span>WebTracing Admin</span>
+							</div>
+							<div class="top-desc">
+								Web监控管理平台
+							</div>
+							<div style="margin-top: 30px;">
+								<div class="layui-form-item">
+									<div class="layui-input-wrap">
+										<div class="layui-input-prefix">
+											<i class="layui-icon layui-icon-username"></i>
+										</div>
+										<input lay-verify="required" name="username" value="" id="username" placeholder="账户" autocomplete="off"
+											class="layui-input">
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<div class="layui-input-wrap">
+										<div class="layui-input-prefix">
+											<i class="layui-icon layui-icon-password"></i>
+										</div>
+										<input type="password" name="password" value=""
+											lay-verify="required|password" placeholder="密码" autocomplete="off"
+											class="layui-input" lay-affix="eye">
+									</div>
+								</div>
+								<div class="tab-log-verification">
+									<div class="verification-text">
+										<div class="layui-input-wrap">
+											<div class="layui-input-prefix">
+												<i class="layui-icon layui-icon-auz"></i>
+											</div>
+											<input lay-verify="required|verifyCode" id="verifyCode" name="verifyCode" value="" placeholder="验证码" autocomplete="off"
+												class="layui-input">
+										</div>
+									</div>
+									<img id="captcha" src="./captcha/getCode" alt="" class="verification-img" onclick="refreshCode()"/>
+								</div>
+								<div class="layui-form-item">
+									<div class="remember-passsword">
+										<div class="remember-cehcked">
+											<input type="checkbox" name="like1[write]" lay-skin="primary" title="自动登录">
+										</div>
+									</div>
+								</div>
+								<div class="login-btn">
+									<button type="button" lay-submit lay-filter="login"
+											class="layui-btn login" style="width: 100%;color: #fff;background: #16baaa;">登 录</button>
+								</div>
+								<div class="other-login">
+									<div class="other-login-methods">
+										其他方式
+									</div>
+									<div class="greenText">注册账号</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<!-- 资 源 引 入 -->
+	<script src="./component/layui/layui.js"></script>
+	<script src="./component/pear/pear.js"></script>
+	<script>
+		layui.use(['form', 'button', 'popup','toast'], function () {
+			var form = layui.form;
+			var button = layui.button;
+			var popup = layui.popup;
+			var toast = layui.toast;
+
+			// 登 录 提 交
+			form.on('submit(login)', function (options) {
+				/// 验证验证码
+				fetch("./captcha/checkCode?inputCaptcha=" + options.field.verifyCode)
+					.then(response => {
+						if (response.ok) {
+							return response.json();
+						}
+						throw new Error('Network response was not ok.');
+					})
+					.then(data => {
+						// 处理获取到的JSON数据
+						console.log(data);
+						if (!data){
+							toast.error({
+								message: '验证码错误',
+							})
+							return false;
+						}
+					})
+					.catch(error => {
+						// 处理错误
+						refreshCode();
+						return false;
+					});
+				/// 登录
+				const requestOptions = {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(options.field)
+				};
+				fetch("./login", requestOptions)
+					.then(response => {
+						console.log(JSON.stringify(response));
+						if (response.ok) {
+							return response.json();
+						}
+						throw new Error('Network response was not ok.');
+					})
+					.then(data => {
+						// 处理获取到的数据
+						console.log(data);
+						if (data.code === 200){
+							toast.success({
+								message: '登录成功',
+							})
+							location.href = data.page;
+						}else{
+							toast.error({
+								message: '登录失败',
+							})
+						}
+					})
+					.catch(error => {
+						// 处理错误
+						// console.error('Error:', error);
+					});
+
+
+				/// 动画
+				// button.load({
+				// 	elem: '.login',
+				// 	time: 1500,
+				// 	done: function () {
+				// 		popup.success("登录成功", function () {
+				// 			location.href = "./index.html"
+				// 		});
+				// 	}
+				// })
+
+				return false;
+			});
+		})
+
+		function refreshCode() {
+			var url = "./captcha/getCode?t=" + new Date().getTime();
+			document.getElementById("captcha").src = url;
+		}
+	</script>
+</body>
+
+</html>

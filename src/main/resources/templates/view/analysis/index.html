@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>分析页</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="./admin/css/other/analysis.css" />
+</head>
+
+<body>
+    <div class="pear-container">
+        <div class="layui-row layui-col-space10">
+            <div class="layui-col-xs6 layui-col-md2">
+                <div class="layui-card top-panel">
+                    <div class="layui-card-header">应用数量</div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space5">
+                            <div class="layui-col-xs8 layui-col-md8 top-panel-number" style="color: #28333E;"
+                                id="value1">
+                                0
+                            </div>
+                            <div class="layui-col-xs4 layui-col-md4 top-panel-tips">
+                                <img src="./admin/images/icon_application.svg" alt="" class="icon" style="margin-top: -12px;width: 50px;height: 50px;" >
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="layui-card-header" style="font-size: smaller;font-family: system-ui;color: #999;">历史总数: <span id="sumApp"></span></div>
+                </div>
+            </div>
+            <div class="layui-col-xs6 layui-col-md2">
+                <div class="layui-card top-panel">
+                    <div class="layui-card-header">日活跃用户</div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space5">
+                            <div class="layui-col-xs8 layui-col-md8 top-panel-number" style="color: #28333E;"
+                                id="value2">
+                                0
+                            </div>
+                            <div class="layui-col-xs4 layui-col-md4 top-panel-tips">
+                                <img src="./admin/images/icon_usercount.svg" alt="" class="icon" style="margin-top: -12px;width: 50px;height: 50px;" >
+                            </div>
+                        </div>
+                    </div>
+                    <div class="layui-card-header" style="font-size: smaller;font-family: system-ui;color: #999;">历史用户数: <span id="sumUser">0</span></div>
+                </div>
+            </div>
+            <div class="layui-col-xs6 layui-col-md2">
+                <div class="layui-card top-panel">
+                    <div class="layui-card-header">日活跃设备</div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space5">
+                            <div class="layui-col-xs8 layui-col-md8 top-panel-number" style="color: #28333E;"
+                                id="value3">
+                                0
+                            </div>
+                            <div class="layui-col-xs4 layui-col-md4  top-panel-tips">
+                                <img src="./admin/images/icon_device.svg" alt="" class="icon" style="margin-top: -12px;width: 50px;height: 50px;" >
+                            </div>
+                        </div>
+                    </div>
+                    <div class="layui-card-header" style="font-size: smaller;font-family: system-ui;color: #999;">历史设备数: <span id="sumDevices">0</span></div>
+                </div>
+            </div>
+            <div class="layui-col-xs6 layui-col-md2">
+                <div class="layui-card top-panel">
+                    <div class="layui-card-header">日活跃会话</div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space5">
+                            <div class="layui-col-xs8 layui-col-md8 top-panel-number" style="color: #28333E;"
+                                 id="dailySession">
+                                0
+                            </div>
+                            <div class="layui-col-xs4 layui-col-md4  top-panel-tips">
+                                <img src="./admin/images/icon_session.svg" alt="" class="icon" style="margin-top: -12px;width: 50px;height: 50px;" >
+                            </div>
+                        </div>
+                    </div>
+                    <div class="layui-card-header" style="font-size: smaller;font-family: system-ui;color: #999;">历史会话数: <span id="sumSession">0</span></div>
+                </div>
+            </div>
+            <div class="layui-col-xs6 layui-col-md2">
+                <div class="layui-card top-panel">
+                    <div class="layui-card-header">日点击量</div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space5">
+                            <div class="layui-col-xs8 layui-col-md8 top-panel-number" style="color: #28333E;"
+                                 id="dailyClick">
+                                0
+                            </div>
+                            <div class="layui-col-xs4 layui-col-md4 top-panel-tips">
+                                <img src="./admin/images/icon_click.svg" alt="" class="icon" style="margin-top: -12px;width: 50px;height: 50px;" >
+                            </div>
+                        </div>
+                    </div>
+                    <div class="layui-card-header" style="font-size: smaller;font-family: system-ui;color: #999;">历史点击量: <span id="sumClick">0</span></div>
+                </div>
+            </div>
+            <div class="layui-col-xs6 layui-col-md2">
+                <div class="layui-card top-panel">
+                    <div class="layui-card-header">日浏览PV</div>
+                    <div class="layui-card-body">
+                        <div class="layui-row layui-col-space5">
+                            <div class="layui-col-xs8 layui-col-md8 top-panel-number" style="color: #28333E;"
+                                id="value4">
+                                0
+                            </div>
+                            <div class="layui-col-xs4 layui-col-md4 top-panel-tips">
+                                <img src="./admin/images/icon_pagecount.svg" alt="" class="icon" style="margin-top: -12px;width: 50px;height: 50px;" >
+                            </div>
+                        </div>
+                    </div>
+                    <div class="layui-card-header" style="font-size: smaller;font-family: system-ui;color: #999;">历史浏览数: <span id="sumPages">0</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="layui-row layui-col-space10">
+            <div class="layui-col-md12">
+                <div class="layui-card">
+                    <div class="layui-card-body">
+                        <div class="layui-row">
+                            <div class="layui-col layui-col-md12">
+                                <div id="echarts-records-line" style="height:600px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <script>
+        layui.use(['layer', 'echarts', 'element', 'count'], function () {
+            var $ = layui.jquery,
+                layer = layui.layer,
+                element = layui.element,
+                count = layui.count,
+                echarts = layui.echarts;
+
+            /**
+             *改成你的接口api地址
+             * @type {string}
+             */
+            var baseURL = "http://127.0.0.1:17001";
+
+            //启用layui的loading
+            layer.load(2, {
+                shade: [0.3, '#898d8d'] //0.3透明度的灰色背景
+            });
+
+            var echartsRecordsLine = echarts.init(document.getElementById('echarts-records-line'), 'walden');
+            //折线图
+            var option_line = {
+                title: {
+                    text: '一周访问趋势图'
+                },
+                legend: {
+                    data: []
+                },
+                tooltip: {
+                    trigger: 'axis'
+                },
+                xAxis: {
+                    type: 'category',
+                    data: []
+                },
+                toolbox: {
+                    feature: {
+                        saveAsImage: {}
+                    }
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: []
+            };
+
+            window.onresize = function () {
+                echartsRecordsLine.resize();
+            }
+            //从接口获取数据
+            fetch(baseURL+"/webTrack/queryDailyBaseInfo").then(function (response) {
+                return response.json();
+            }).then(function (data) {
+                if (data.code === 1000){
+                    var dailyBaseInfo = data.data[0];
+                    if (dailyBaseInfo.DAY_TIME != null){
+                        //赋值
+                        $('#value1').text(dailyBaseInfo.APPLICATION_NUM);
+                        $('#value2').text(dailyBaseInfo.USER_COUNT);
+                        $('#value3').text(dailyBaseInfo.DEVICE_NUM);
+                        $('#dailySession').text(dailyBaseInfo.SESSION_UNM);
+                        $('#dailyClick').text(dailyBaseInfo.CLICK_NUM);
+                        $('#value4').text(dailyBaseInfo.PV_NUM);
+                        //分类数据
+                        count.up("value1", {
+                            time: 4000,
+                            num: dailyBaseInfo.APPLICATION_NUM,
+                            bit: 0,
+                            regulator: 50
+                        })
+                        count.up("value2", {
+                            time: 4000,
+                            num: dailyBaseInfo.USER_COUNT,
+                            bit: 0,
+                            regulator: 50
+                        })
+                        count.up("value3", {
+                            time: 4000,
+                            num: dailyBaseInfo.DEVICE_NUM,
+                            bit: 0,
+                            regulator: 50
+                        })
+                        count.up("value4", {
+                            time: 4000,
+                            num: dailyBaseInfo.PV_NUM,
+                            bit: 0,
+                            regulator: 50
+                        })
+                        count.up("dailySession", {
+                            time: 4000,
+                            num: dailyBaseInfo.SESSION_UNM,
+                            bit: 0,
+                            regulator: 50
+                        })
+                        count.up("dailyClick", {
+                            time: 4000,
+                            num: dailyBaseInfo.CLICK_NUM,
+                            bit: 0,
+                            regulator: 50
+                        })
+                    }
+                }
+            });
+            fetch(baseURL+"/webTrack/queryAllBaseInfo").then(function (response) {
+                return response.json();
+            }).then(function (data) {
+                if (data.code === 1000){
+                    var allBaseInfo = data.data[0];
+                    if (allBaseInfo != null){
+                        //赋值
+                        $('#sumApp').text(allBaseInfo.APPLICATION_NUM);
+                        $('#sumUser').text(allBaseInfo.USER_COUNT);
+                        $('#sumDevices').text(allBaseInfo.DEVICE_NUM);
+                        $('#sumSession').text(allBaseInfo.SESSION_UNM);
+                        $('#sumClick').text(allBaseInfo.CLICK_NUM);
+                        $('#sumPages').text(allBaseInfo.PV_NUM);
+                   }
+                }
+            });
+
+            var dateInfo = getCurrentAndPastDate(7);
+            //获取日曲线
+            fetch(baseURL+"/webTrack/queryDailyInfo",{
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "startDate": dateInfo.pastDate,
+                    "endDate": dateInfo.currentDate
+                })
+            }).then(function (response) {
+                return response.json();
+            }).then(function (data) {
+                if (data.code === 1000){
+                    var dailyInfo = data.data;
+                    var range_date = getRangeDate(7);
+                    var application_data_num = ['1','2','5'];
+                    var application_data = ['微信公众号','支付宝生活号','支付宝小程序'];
+                    var series_line_data = [];
+
+                    for (let i = 0; i < application_data_num.length; i++) {
+                        //数组对象跟着应用的
+                        var series_line_item = {
+                            name: '',
+                            type: 'line',
+                            smooth: true,
+                            data: []
+                        }
+                        var dataStr = [];
+
+                        for (let k = 0; k < range_date.length; k++) {
+                            var dateOne = range_date[k];
+                            var series_line_item = {
+                                name: '',
+                                type: 'line',
+                                smooth: true,
+                                data: []
+                            }
+                            for (let j = 0; j < dailyInfo.length; j++) {
+                                var item = dailyInfo[j];
+                                //先循环获取1的
+                                if (application_data_num[i]==item.VERSION_ID && dateOne == item.DATETIME ){
+                                    series_line_item.name = application_data[i];
+                                    dataStr.push(item.PV_NUM);
+                                }else {
+                                    continue;
+                                }
+                            }
+                        }
+                        series_line_item.data = dataStr;
+                        series_line_data.push(series_line_item);
+                    }
+
+                    option_line.xAxis.data = range_date;
+                    option_line.legend.data = application_data;
+                    option_line.series = series_line_data;
+                    echartsRecordsLine.setOption(option_line);
+
+
+                    setInterval(() => {
+                        echartsRecordsLine.resize();
+                    }, 500);
+
+                }
+
+            }).catch(function (error) {
+                console.log(error);
+                return false
+            });
+
+            //关闭loading
+            layer.closeAll('loading');
+
+            const colorList = ["#9E87FF", '#73DDFF', '#fe9a8b', '#F56948', '#9E87FF']
+
+            function getRangeDate(n) {
+                let range_date = [];
+                let today = new Date();
+                for (let i = 0; i < n; i++) {
+                    let date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+                    let year = date.getFullYear();
+                    let month = ("0" + (date.getMonth() + 1)).slice(-2); // Months are zero based. Add leading 0.
+                    let day = ("0" + date.getDate()).slice(-2); // Add leading 0.
+                    range_date.push(`${year}-${month}-${day}`);
+                }
+                return range_date.reverse();
+            }
+
+            function getCurrentAndPastDate(n) {
+                let today = new Date();
+                let pastDate = new Date(today.getTime() - n * 24 * 60 * 60 * 1000);
+
+                function padZero(num) {
+                    return num < 10 ? '0' + num : num;
+                }
+
+                function formatDate(date) {
+                    return [
+                        date.getFullYear(),
+                        padZero(date.getMonth() + 1),
+                        padZero(date.getDate())
+                    ].join('-');
+                }
+
+                return {
+                    currentDate: formatDate(today),
+                    pastDate: formatDate(pastDate)
+                };
+            }
+
+        });
+    </script>
+</body>
+
+</html>

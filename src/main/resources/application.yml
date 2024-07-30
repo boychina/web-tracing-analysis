@@ -1,0 +1,93 @@
+server:
+  port: 17002
+  max-http-request-header-size: 20480
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+      enabled: true
+#配置日志
+logging:
+  level:
+    root: info
+    # 不同目录下的日志可配置不同级别 info, error
+    com.euler: debug
+    org.springfromework.web: info
+#配置数据库链接
+spring:
+  web:
+    resources:
+      static-locations: classpath:/static/
+#  application:
+#    name: druid-jdbc-yasdb
+#  mvc.async.request-timeout: 20000
+#  # your_host_id   修改成你的主机所在IP
+#  # your_ip        修改成你的数据库端口
+#  # your_dbname    修改成你的数据库名
+#  # your_username  修改成你的账户名
+#  # your_password  修改成你的账户密码
+#  切换成你自己的数据库链接池配置，不代表生产环境配置,此处只做示例（使用的是深算院的YashanDB数据库链接池）
+#  datasource:
+#    url: jdbc:yasdb://192.168.5.13:1688/yasdb
+#    username: webtrack
+#    password: yahsan_123
+#    driverClassName: com.yashandb.jdbc.Driver
+#    type: com.alibaba.druid.pool.DruidDataSource
+#    #type: org.apache.commons.dbcp2.BasicDataSource
+#    #    initialization-mode: always
+#    # ============================== druid ============================== #
+#    druid:
+#      #最大活跃数
+#      max-active: 20
+#      #初始化数量
+#      initial-size: 1
+#      #最大连接等待超时时间
+#      max-wait: 60000
+#      min-idle: 1
+#
+#      #通过connectionProperties属性来打开mergeSql功能；慢SQL记录
+#      connectionProperties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=5000
+#
+#      # 合并多个DruidDataSource的监控数据
+#      #useGlobalDataSourceStat: true
+#
+#      # JDBC 配置(驱动类自动从url的mysql识别,数据源类型自动识别)
+#      # spring.datasource.url: 或者:
+#      # spring.datasource.druid.url: jdbc:mysql://192.168.1.1:3306/test?useUnicode=true&characterEncoding=UTF8
+#
+#      # spring.datasource.username: 或者
+#      # spring.datasource.druid.username: root
+#
+#      # spring.datasource.password: 或者:
+#      # spring.datasource.druid.password: root
+#
+#      # spring.datasource.driver-class-name: 或者:
+#      # spring.datasource.druid.driver-class-name: com.mysql.jdbc.Driver
+#
+#      # 连接池配置(通常来说，只需要修改initialSize、minIdle、maxActive
+#      # 如果用Oracle，则把poolPreparedStatements配置为true，mysql可以配置为false。
+#      # 分库分表较多的数据库，建议配置为false。removeabandoned不建议在生产环境中打开如果用SQL Server，建议追加配置)
+#
+#      #打开PSCache，并且指定每个连接PSCache的大小
+#      poolPreparedStatements: true
+#      max-pool-prepared-statement-per-connection-size: 20
+#      # max-open-prepared-statements: 和上面的等价
+#
+#      # 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒
+#      time-between-eviction-runs-millis: 60000
+#      min-evictable-idle-time-millis: 300000
+#      # max-evictable-idle-time-millis
+#
+#      # SELECT 'x'
+#      validation-query: select 1 from dual
+#      # validation-query-timeout:
+#
+#      test-while-idle: true
+#      test-on-borrow: false
+#      test-on-return: false
+#
+#      # 配置监控统计拦截的filters，去掉后监控界面sql将无法统计,'wall'用于防火墙
+#      #      filters: stat, wall, log4j
+#
+#      # Spring监控配置，说明请参考Druid Github Wiki，配置_Druid和Spring关联监控配置
+#      # aop-patterns: # Spring监控AOP切入点，如x.y.z.service.*,配置多个英文逗号分隔

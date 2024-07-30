@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <title>行为追踪分析</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="./admin/css/other/console.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/perfect-scrollbar/1.5.3/css/perfect-scrollbar.min.css">
+</head>
+
+<body>
+<div class="pear-container">
+    <div class="layui-row layui-col-space10">
+        <div class="layui-col-md9">
+            <div class="layui-row layui-col-space10">
+                <form class="layui-form">
+                    <div class="layui-col-md4">
+                        <div class="layui-card">
+                            <div class="layui-card-header">
+                                用户标识
+                            </div>
+                            <div class="layui-card-body">
+                                <div class="layui-row layui-col-space10">
+                                    <div class="layui-col-md3 layui-col-sm3 layui-col-xs3">
+                                        <div class="layui-form-item" style="width: 300px;">
+                                            <div class="layui-input-block" style="margin-left: 5px;">
+                                                <input type="text" name="userId" id="userId" required  lay-verify="required" placeholder="请输入用户标识(openID)" autocomplete="off" class="layui-input">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md4">
+                        <div class="layui-card">
+                            <div class="layui-card-header">
+                                访问时间
+                            </div>
+                            <div class="layui-card-body">
+                                <div class="layui-row layui-col-space10">
+                                    <div class="layui-col-md3 layui-col-sm3 layui-col-xs3">
+                                        <div class="layui-form-item" style="width: 300px;">
+                                            <div class="layui-input-block" style="margin-left: 5px;">
+                                                <input type="text" name="time" id="time" required  lay-verify="required" placeholder="请选择时间范围" autocomplete="off" class="layui-input">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="layui-col-md4">
+                        <div class="layui-card">
+                            <div class="layui-card-header">
+                                追踪查询
+                            </div>
+                            <div class="layui-card-body">
+                                <div class="layui-row layui-col-space10">
+                                    <div class="layui-col-md3 layui-col-sm3 layui-col-xs3">
+                                        <div class="layui-form-item" style="width: 300px;">
+                                            <div class="layui-input-block" style="margin-left: 5px;">
+                                                <button class="layui-btn layui-btn-fluid" type="button" lay-submit lay-filter="search">search</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+<!--                以上是查询条件-->
+                <div class="layui-col-md12">
+                    <!--                    会话信息-->
+                    <div class="layui-card">
+                        <div class="layui-card-header">
+                            会话记录
+                        </div>
+                        <div class="layui-card-body" style="padding-top: 15px; padding-bottom: 15px;">
+                            <table class="layui-hide" id="session-table-data"></table>
+                        </div>
+                    </div>
+                    <!--                设备信息-->
+                    <div class="layui-card">
+                        <div class="layui-card-header">
+                            设备信息
+                        </div>
+                        <div class="layui-card-body" style="height: 390px;">
+                            <div class="layui-row layui-col-space10">
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item" style="width: 300px;">
+                                        <div>
+                                            <ul>
+                                                <li style="height: 30px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">手机品牌：</span>
+                                                    <span id="vendor" style="color: #FF0000FF"></span>
+                                                </li>
+                                                <li style="height: 30px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">手机型号：</span>
+                                                    <span id="model" style="color: #FF0000FF"></span>
+                                                </li>
+                                                <li style="height: 30px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">操作系统：</span>
+                                                    <span id="OSName" style="color: #FF0000FF"></span>
+                                                </li>
+                                                <li style="height: 30px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">系统版本：</span>
+                                                    <span id="OSVersion" style="color: #FF0000FF"></span>
+                                                </li>
+                                                <li style="height: 30px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">移动平台：</span>
+                                                    <span id="platform" style="color: #FF0000FF"></span>
+                                                </li>
+                                            </ul>
+                                            <hr>
+                                            <ul>
+                                                <li style="height: 30px;width: 500px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">设备ID：</span>
+                                                    <span id="deviceId" style="color: #01AAED"></span>
+                                                </li>
+                                                <li style="height: 30px;width: 500px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family:'Microsoft YaHei UI';">访问时间：</span>
+                                                    <span id="visitTime" style="color: #01AAED"></span>
+                                                </li>
+                                                <li style="height: 30px;width: 500px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family:'Microsoft YaHei UI';">归属地：</span>
+                                                    <span id="userLocation" style="color: #01AAED"></span>
+                                                </li>
+                                                <li style="height: 30px;width: 500px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">应用来源：</span>
+                                                    <span id="versionId" style="color: #01AAED"></span>
+                                                </li>
+                                                <li style="height: 30px;width: 1500px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family:'Microsoft YaHei UI';">调试链接：</span>
+                                                    <span id="debugUrl" style="color: #01AAED"></span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="layui-col-md6">
+                                    <div class="layui-form-item" style="width: 300px;">
+                                        <div>
+                                            <ul>
+                                                <li style="height: 30px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">app应用：</span>
+                                                    <span id="app" style="color: #FF0000FF"></span>
+                                                </li>
+                                                <li style="height: 30px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">app版本：</span>
+                                                    <span id="appVersion" style="color: #FF0000FF"></span>
+                                                </li>
+
+                                                <li style="height: 30px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">浏览器内核：</span>
+                                                    <span id="webkit" style="color: #FF0000FF"></span>
+                                                </li>
+                                                <li style="height: 30px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">屏幕宽度：</span>
+                                                    <span id="screenWidth" style="color: #FF0000FF"></span>
+                                                </li>
+                                                <li style="height: 30px;">
+                                                    <span style="font-size: larger;font-weight: bold;font-family: 'Microsoft YaHei UI';">屏幕高度：</span>
+                                                    <span id="screenHeight" style="color: #FF0000FF"></span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-md3">
+            <div class="layui-card">
+                <div class="layui-card-header">时序行为分析</div>
+                <div class="layui-card-body">
+                    <div id="scrollable-content" style="height: 100%; overflow-y: auto;min-height: 400px;max-height: 800px;">
+                        <div style="height: 100%;">
+                            <ul class="layui-timeline" id="userBehaviorList">
+                                <li class="layui-timeline-item">
+                                    <div class="layui-timeline-content layui-text">
+                                        <li class="layui-timeline-title">请选择一个会话记录查看数据</li>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="application/javascript" src="./admin/js/ua-parser.min.js"></script>
+<script th:inline="javascript">
+    layui.use(['form','layer', 'echarts', 'carousel', 'element', 'table','laydate'], function() {
+        var $ = layui.jquery,
+            form = layui.form,
+            layer = layui.layer,
+            element = layui.element,
+            echarts = layui.echarts,
+            table = layui.table,
+            carousel = layui.carousel,
+            laydate = layui.laydate;
+
+        /**
+         * 调用接口API的地址前缀
+         * @type {string}
+         */
+        var baseURL = "http://127.0.0.1:17001";
+
+        //日期时间范围
+        laydate.render({
+            elem: '#time'
+            ,type: 'datetime'
+            ,theme: 'grid'
+            ,range: true
+        });
+
+        //layui监听提交
+        form.on('submit(search)', function(data){
+            var index = layer.load(1, { shade: [0.3,'#d8e7e4'] });
+            $('#userBehaviorList').empty();
+            $('#userBehaviorList').append('<li class="layui-timeline-item">\n' +
+                '                                    <div class="layui-timeline-content layui-text">\n' +
+                '                                        <li class="layui-timeline-title">请选择一个会话记录查看数据</li>\n' +
+                '                                    </div>\n' +
+                '                                </li>') ;
+            document.getElementById('vendor').innerText = '' ;
+            document.getElementById('model').innerText = '' ;
+            document.getElementById('OSName').innerText = '' ;
+            document.getElementById('OSVersion').innerText = '';
+            document.getElementById('webkit').innerText = '';
+            document.getElementById('app').innerText = '';
+            document.getElementById('appVersion').innerText = '';
+            document.getElementById('platform').innerText = '';
+            document.getElementById('screenWidth').innerText = '';
+            document.getElementById('screenHeight').innerText = '';
+            document.getElementById('deviceId').innerText = '';
+            document.getElementById('userLocation').innerText = '';
+            document.getElementById('versionId').innerText = '';
+            document.getElementById('debugUrl').innerText = '';
+
+            var userId = data.field.userId;
+            var timeStr = data.field.time;
+            var startTime = "";
+            var endTime = "";
+            if(userId == null || userId == ""){
+                layer.msg("请输入用户ID", {
+                    icon: 5
+                });
+                return false;
+            }
+            if(timeStr == null || timeStr == ""){
+                layer.msg("请输入时间", {
+                    icon: 5
+                });
+                return false;
+            }
+            if (timeStr.indexOf(" - ") >= 0){
+                startTime = timeStr.substring(0,19);
+                endTime = timeStr.substring(22,42);
+            }
+            /**
+             * 查询用户会话记录
+             * @param userId
+             * @param startTime
+             * @param endTime
+             * @returns {Promise<Response>}
+             */
+            fetch(baseURL+"/webTrack/queryUserSessionRecord",{
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    "openId": userId,
+                    "startDate": startTime,
+                    "endDate": endTime
+                })
+            }).then(function (response) {
+                return response.json();
+            }).then(function(data){
+                if (data.code === 1000){
+                    sessionList = data.data.sessionArray;
+                    refreshTable(sessionList);
+                    var rowData = sessionList[0];
+                    layer.close(index);
+                }
+            }).catch(function(err){
+                layer.msg(err.message, {
+                    icon: 5
+                })
+                return false;
+            })
+            return false;
+        });
+
+
+        //表格数据重载
+        function refreshTable(sessionList){
+            inst.reload({
+                data: sessionList
+            });
+        }
+        //触发行单击事件
+        table.on('row(session-table-data)', function(obj){
+            var index = layer.load(1, { shade: [0.3,'#d8e7e4'] });
+            var rowData = obj.data;
+            var navigatorUserAgent = rowData.NAVIGATOR_USERAGENT;
+            const parser = new UAParser();
+            const result = parser.setUA(navigatorUserAgent).getResult();
+            document.getElementById('vendor').innerText = result.device.vendor ;
+            document.getElementById('model').innerText = result.device.model ;
+            document.getElementById('OSName').innerText = result.os.name ;
+            document.getElementById('OSVersion').innerText = result.os.version;
+            document.getElementById('webkit').innerText = rowData.VENDOR;
+            document.getElementById('app').innerText = result.browser.name;
+            document.getElementById('appVersion').innerText = result.browser.version;
+            document.getElementById('platform').innerText = rowData.PLATFORM;
+            document.getElementById('screenWidth').innerText = rowData.SCREEN.substring(0,rowData.SCREEN.indexOf("*"));
+            document.getElementById('screenHeight').innerText = rowData.SCREEN.substring(rowData.SCREEN.indexOf("*")+1,rowData.SCREEN.length);
+            document.getElementById('deviceId').innerText = rowData.DEVICE_ID;
+            //获取IP归属地
+            /**
+             * @param ip
+             * 调用高德API获取IP归属地，key值换成自己在高德开放平台申请的key
+             */
+            fetch("https://restapi.amap.com/v3/ip?key=YOUR_KRY&ip="+rowData.IPADDR,{
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+            }).then(function (response) {
+                return response.json();
+            }).then(function(data){
+                if (data.status === 1){
+                    document.getElementById('userLocation').innerText = data.province + '-' + data.city;
+                }
+            })
+            document.getElementById('visitTime').innerText = rowData.VISIT_TIME;
+            if ('1' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "微信公众号";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730001@622001@"+rowData.OPEN_ID;
+            }
+            if ('2' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "支付宝生活号";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730002@622001@"+rowData.OPEN_ID;
+            }
+            if ('3' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "微信小程序";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730003@622001@"+rowData.OPEN_ID;
+            }
+            if ('4' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "支付宝小程序";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730004@622001@"+rowData.OPEN_ID;
+            }
+            if ('5' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "企业微信";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730005@622001@"+rowData.OPEN_ID;
+            }
+            if ('6' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "企业微信小程序";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730006@622001@"+rowData.OPEN_ID;
+            }
+            if ('7' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "钉钉";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730007@622001@"+rowData.OPEN_ID;
+            }
+            if ('8' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "钉钉小程序";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730008@622001@"+rowData.OPEN_ID;
+            }
+            if ('9' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "百度小程序";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730009@622001@"+rowData.OPEN_ID;
+            }
+            if ('10' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "字节跳动小程序";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730010@622001@"+rowData.OPEN_ID;
+            }
+            if ('11' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "快手小程序";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730011@622001@"+rowData.OPEN_ID;
+            }
+            if ('12' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "QQ小程序";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730012@622001@"+rowData.OPEN_ID;
+            }
+            if ('13' === rowData.VERSION_ID){
+                document.getElementById('versionId').innerText = "头条小程序";
+                document.getElementById('debugUrl').innerText = "toPage.html?value=20240730013@622001@"+rowData.OPEN_ID;
+            }
+            var behaviorList = new Array();
+            if (rowData.SESSION_ID != null && rowData.SESSION_ID != "" && rowData.SESSION_ID != "null" && rowData.SESSION_ID != "undefined"){
+                /**
+                 * 根据sessionId查询用户行为行为分析
+                 * @param sessionId 会话ID
+                 * @param queryDate 查询日期 格式YYYY-MM-DD
+                 */
+                fetch(baseURL+"/webTrack/queryUserBehavior",{
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        "sessionId": rowData.SESSION_ID,
+                        "queryDate": rowData.VISIT_TIME.substring(0,10)
+                    })
+                }).then(function (response){
+                    return response.json();
+                }).then(function(data){
+                    if (data.code == 1000){
+                        layer.close(index);
+                        behaviorList = data.data.actionArray;
+                        window.localStorage.clear();
+                        window.localStorage.setItem("behaviorList",JSON.stringify(behaviorList));
+                        if (behaviorList.length > 0){
+                            $('#userBehaviorList').empty();
+                            var innerHTML = '';
+                            for (let i = 0; i < behaviorList.length; i++) {
+                                var item = behaviorList[i];
+                                innerHTML += '<li class="layui-timeline-item">';
+                                innerHTML += '<i class="layui-icon layui-timeline-axis">&#xe63f;</i>';
+                                innerHTML += '<div class="layui-timeline-content layui-text">';
+                                innerHTML += '<h3 class="layui-timeline-title" style="color: #01AAED">' + item.VISIT_TIME + '</h3>';
+                                innerHTML += '<ul>';
+                                innerHTML += '<li><span style="font-weight: bold;">索引记录</span>：<em>' + item.RECORD_ID + '</em></li>';
+                                innerHTML += '<li><span style="font-weight: bold;">页面URL</span>：<em>' + item.TRIGGER_PAGE_URL + '</em></li>';
+                                innerHTML += '<li><span style="font-weight: bold;">页面动作</span>：<em>'+item.EVENT_TYPE+'</em><a href="javascript:;" className="layui-btn layui-btn-primary layui-btn-xs message-board-reply" onclick="showEventInfo('+i+')" style="margin-left: 0.5rem;">详情</a></li>';
+                                if (item.EVENT_TYPE != null && item.EVENT_TYPE != "null" && item.EVENT_TYPE != "undefined" && item.EVENT_TYPE != undefined && item.EVENT_TYPE == "CLICK") {
+                                    innerHTML += '<li><span style="font-weight: bold;">访问时间</span>：<em>' + item.VISIT_TIME + '</em></li>';
+                                    innerHTML += '<li><span style="font-weight: bold;">元素路径</span>：<em>' + item.ELEMENT_PATH + '</em></li>';
+                                    innerHTML += '<li><span style="font-weight: bold;">坐标位置</span>：<em>' + item.LOCATION + '</em></li>';
+                                }else {
+                                    innerHTML += '<li><span style="font-weight: bold;">访问时间</span>：<em>' + item.VISIT_TIME + '</em></li>';
+                                }
+                                innerHTML += '<li><span style="font-weight: bold;">驻停时间</span>： <em>' + item.DURATION_TIME + ' </em>ms</li>';
+                                innerHTML += '<li><span style="font-weight: bold;">请求接口</span>： <em><a href="javascript:;" className="layui-btn layui-btn-primary layui-btn-xs message-board-reply" onclick="showRequestInfo('+i+')" style="margin-left: 0.5rem;">点击查看</a></em></li>';
+                                innerHTML += '</ul>';
+                            }
+                            $('#userBehaviorList').append(innerHTML);
+                        }
+
+                    }
+                }).catch(function (err) {
+                    layer.msg(err.message, {
+                        icon: 5
+                    })
+                    return false;
+                })
+            }
+
+        });
+        //初始化表格数据
+        var inst = table.render({
+            elem: '#session-table-data',
+            cols: [
+                    [{
+                        field: 'SESSION_ID',
+                        title: '会话ID',
+                    },
+                    {
+                        field: 'USER_NAME',
+                        title: '用户名',
+                    },
+                    {
+                        field: 'IPADDR',
+                        title: '访问IP',
+                    },
+                    {
+                        field: 'OPEN_ID',
+                        title: '用户标识',
+                    },
+                    {
+                        field: 'VISIT_TIME',
+                        title: '访问时间',
+                        sort: true,
+                    }
+                ]
+            ],
+            data: [],
+            page: true
+        });
+        $("body").on("click", "[data-url]", function() {
+            PearAdmin.changePage({
+                id: $(this).attr("data-id"),
+                title: $(this).attr("data-title"),
+                url: $(this).attr("data-url"),
+                type: "_iframe",
+            });
+        })
+
+    });
+
+    /**
+     * 显示事件详情
+     * 入参: index 参数索引脚表
+     * @param index
+     */
+    function showEventInfo(index){
+        var behaviorList = JSON.parse(window.localStorage.getItem("behaviorList"));
+        // console.log('localStorage:'+behaviorList.length);
+        var item = behaviorList[index].EVENT_INFO;
+        layer.open({
+            title: '上报信息'
+            ,area: '500px'
+            ,content: JSON.stringify(JSON.parse(item))
+        });
+    }
+
+
+    function showRequestInfo(index){
+        var behaviorList = JSON.parse(window.localStorage.getItem("behaviorList"));
+        var item = behaviorList[index];
+        var loading = layer.load(1, { shade: [0.3,'#d8e7e4'] });
+        /**
+         * 查询某个页面调用接口请求信息
+         * @param queryDate 查询日期 yyyy-MM-dd
+         * @param recordId 索引记录
+         * @returns {Promise<Response>}
+         */
+        fetch("http://127.0.0.1:17001/webTrack/queryPageRequest?queryDate="+item.VISIT_TIME.substring(0,10)+"&recordId="+item.RECORD_ID,{
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json"
+            },
+        }).then(function (response) {
+            return response.json();
+        }).then(function(data){
+            if (data.code === 1000){
+                layer.close(loading);
+                var jsonStr = data.data;
+                console.log(JSON.stringify(jsonStr));
+                layer.open({
+                    title: '接口信息'
+                    ,area: ['500px', '600px']
+                    ,content: '<pre style="max-height: 600px;">'+JSON.stringify(jsonStr, null, 2)+'</pre>'
+                })
+            }else {
+                layer.close(loading);
+                layer.msg(data.msg, {})
+            }
+        })
+
+    }
+</script>
+</body>
+
+</html>
