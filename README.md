@@ -1,4 +1,4 @@
-## 使用
+## 简介
 
 基于[web-tracing](https://github.com/M-cheng-web/web-tracing)的前端分析项目，监控web前端项目性能，异常，请求，资源，路由，曝光，录屏等以及行为追踪分析。
 项目基于springBoot框架，使用maven构建,这里仅做分析展示的一种形式。
