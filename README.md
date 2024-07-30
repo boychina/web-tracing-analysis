@@ -35,5 +35,3 @@ git下载项目，使用maven构建项目，然后使用idea打开项目，运�
   [<img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.png" width="200"/>](https://www.jetbrains.com/opensource/)
 
 ---
-
-请根据实际情况调整上述内容，如删除不必要的部分或添加更多细节。记得替换示例中的`user/project`为你自己的GitHub用户名和项目名。
