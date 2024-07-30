@@ -16,6 +16,12 @@ git下载项目，使用maven构建项目，然后使用idea打开项目，运�
 |-------| ------- |
 | admin | admin |
 
+###
+
+<img src="src/main/doc/1722353141613.jpg">
+<img src="src/main/doc/1722353211528.jpg">
+<img src="src/main/doc/1722352544969.jpg">
+
 ## 许可证
 
 本项目采用Apache License 2.0许可。详情参见[LICENSE](LICENSE)文件。
