@@ -4,24 +4,40 @@
 		"title": "工作空间",
 		"icon": "layui-icon layui-icon-console",
 		"type": 0,
-		"children": [
-			{
-				"id": "10",
-				"title": "监控大屏",
-				"icon": "layui-icon layui-icon-console",
-				"type": 1,
-				"openType": "_component",
-				"href": "view/analysis/index.html"
-			},
-			{
-				"id": "11",
-				"title": "行为分析",
-				"icon": "layui-icon layui-icon-console",
-				"type": 1,
-				"openType": "_component",
-				"href": "view/analysis/userTrack.html"
-			}
-		]
+        "children": [
+            {
+                "id": "10",
+                "title": "监控大屏",
+                "icon": "layui-icon layui-icon-console",
+                "type": 1,
+                "openType": "_component",
+                "href": "view/analysis/index.html"
+            },
+            {
+                "id": "11",
+                "title": "行为分析",
+                "icon": "layui-icon layui-icon-console",
+                "type": 1,
+                "openType": "_component",
+                "href": "view/analysis/userTrack.html"
+            },
+            {
+                "id": "12",
+                "title": "应用监控",
+                "icon": "layui-icon layui-icon-console",
+                "type": 1,
+                "openType": "_component",
+                "href": "view/application/monitor.html"
+            },
+            {
+                "id": "13",
+                "title": "应用管理",
+                "icon": "layui-icon layui-icon-console",
+                "type": 1,
+                "openType": "_component",
+                "href": "view/application/index.html"
+            }
+        ]
 	},
 	{
 		"id": 9,

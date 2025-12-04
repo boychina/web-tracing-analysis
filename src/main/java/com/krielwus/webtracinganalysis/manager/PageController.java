@@ -23,7 +23,7 @@ public class PageController {
     @RequestMapping("/")
     @ResponseBody
     public void page(HttpServletRequest request, HttpSession session, HttpServletResponse response) throws IOException {
-        if (StrUtil.isEmptyIfStr(session.getAttribute("username"))){
+        if (StrUtil.isEmptyIfStr(session.getAttribute("user")) && StrUtil.isEmptyIfStr(session.getAttribute("username"))){
             response.sendRedirect("/login.html");
         }else {
             response.sendRedirect("/index.html");

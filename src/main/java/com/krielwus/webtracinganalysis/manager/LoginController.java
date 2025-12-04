@@ -1,6 +1,7 @@
 package com.krielwus.webtracinganalysis.manager;
 
 import com.alibaba.fastjson.JSONObject;
+import com.krielwus.webtracinganalysis.entity.UserAccount;
 import com.krielwus.webtracinganalysis.info.ResultInfo;
 import com.krielwus.webtracinganalysis.service.UserService;
 import org.springframework.stereotype.Controller;
@@ -45,7 +46,13 @@ public class LoginController {
         if (captcha != null && captcha.equalsIgnoreCase(verifyCode)) {
             boolean ok = userService.authenticate(username, password);
             if (ok) {
-                session.setAttribute("username", username);
+                UserAccount user = userService.findByUsername(username);
+                if (user != null) {
+                    session.setAttribute("user", user);
+                    session.setAttribute("username", user.getUsername());
+                } else {
+                    session.setAttribute("username", username);
+                }
                 return new ResultInfo(200, "登录成功", "","./index.html");
             } else {
                 return new ResultInfo(400, "用户名或密码错误");

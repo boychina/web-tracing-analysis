@@ -9,8 +9,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1"
     />
-    <link rel="stylesheet" href="/component/pear/css/pear.css" />
-    <link rel="stylesheet" href="/admin/css/other/analysis.css" />
+    <link rel="stylesheet" href="./admin/css/other/analysis.css" />
   </head>
   <body>
     <div class="pear-container">
@@ -34,8 +33,6 @@
         </div>
       </div>
     </div>
-    <script src="/component/layui/layui.js"></script>
-    <script src="/component/pear/pear.js"></script>
     <script>
       layui.use(["table", "layer", "form", "toast"], function () {
         var table = layui.table,
@@ -140,6 +137,7 @@
           layer.open({
             title: title,
             area: ["520px", "380px"],
+            btn: ['提交','取消'],
             content:
               '<div style="padding:16px;">' +
               '<div class="layui-form-item">' +
@@ -155,7 +153,7 @@
               '  <div class="layui-input-block">' +
               '    <input type="text" id="f_app_code_prefix" value="' +
               initPrefix +
-              '" placeholder="2-8位字母数字下划线" autocomplete="off" class="layui-input">' +
+              '" placeholder="2-16位字母数字下划线" autocomplete="off" class="layui-input">' +
               "  </div>" +
               "</div>" +
               '<div class="layui-form-item">' +
@@ -172,15 +170,8 @@
               '    <div id="f_app_managers_loading">加载中...</div>' +
               '  </div>' +
               '</div>' +
-              '<div class="layui-form-item">' +
-                '  <div class="layui-input-block">' +
-                '    <button class="layui-btn" id="f_submit">提 交</button>' +
-                "  </div>" +
-              "</div>" +
               "</div>",
             success: function () {
-              var btn = document.getElementById("f_submit");
-              if (!btn) return;
               fetch('/application/users').then(r=>r.json()).then(function(resp){
                 var box = document.getElementById('f_app_managers_box');
                 var loading = document.getElementById('f_app_managers_loading');
@@ -200,50 +191,31 @@
                   box.innerHTML = '<span style="color:#f00;">加载用户失败</span>';
                 }
               });
-              btn.addEventListener("click", function () {
-                var name = document.getElementById("f_app_name").value.trim();
-                var prefix = document
-                  .getElementById("f_app_code_prefix")
-                  .value.trim();
-                var desc = document.getElementById("f_app_desc").value.trim();
-                if (name.length < 2 || name.length > 16) {
-                  toast.error({ message: "应用名称长度需2-16" });
-                  return;
-                }
-                if (!/^[A-Za-z0-9_]{2,8}$/.test(prefix)) {
-                  toast.error({ message: "代码前缀需2-8位字母数字下划线" });
-                  return;
-                }
-                var checks = document.querySelectorAll('input[name="f_app_managers"]:checked');
-                var managers = [];
-                for (var i=0;i<checks.length;i++){ managers.push(checks[i].value); }
-                var payload = row
-                  ? {
-                      id: row.id,
-                      app_name: name,
-                      app_code_prefix: prefix,
-                      app_desc: desc,
-                      app_managers: managers
-                    }
-                  : { app_name: name, app_code_prefix: prefix, app_desc: desc, app_managers: managers };
-                var url = row ? "/application/update" : "/application/create";
-                fetch(base + url, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(payload),
-                })
-                  .then((r) => r.json())
-                  .then(function (resp) {
-                    if (resp.code === 1000) {
-                      toast.success({ message: "操作成功" });
-                      layer.closeAll();
-                      reload();
-                    } else {
-                      toast.error({ message: resp.msg || "操作失败" });
-                    }
-                  });
-              });
             },
+            yes: function (idx) {
+              var name = document.getElementById("f_app_name").value.trim();
+              var prefix = document.getElementById("f_app_code_prefix").value.trim();
+              var desc = document.getElementById("f_app_desc").value.trim();
+              if (name.length < 2 || name.length > 16) { toast.error({ message: "应用名称长度需2-16" }); return false; }
+              if (!/^[A-Za-z0-9_]{2,16}$/.test(prefix)) { toast.error({ message: "代码前缀需2-16位字母数字下划线" }); return false; }
+              var checks = document.querySelectorAll('input[name="f_app_managers"]:checked');
+              var managers = []; for (var i=0;i<checks.length;i++){ managers.push(checks[i].value); }
+              var payload = row ? { id: row.id, app_name: name, app_code_prefix: prefix, app_desc: desc, app_managers: managers } : { app_name: name, app_code_prefix: prefix, app_desc: desc, app_managers: managers };
+              var url = row ? "/application/update" : "/application/create";
+              fetch(base + url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+                .then((r) => r.json())
+                .then(function (resp) {
+                  if (resp.code === 1000) {
+                    toast.success({ message: "操作成功" });
+                    layer.closeAll();
+                    reload();
+                  } else {
+                    toast.error({ message: resp.msg || "操作失败" });
+                  }
+                });
+              return false;
+            },
+            btn2: function (idx) { layer.close(idx); }
           });
         }
       });

@@ -36,8 +36,12 @@
 					<li class="layui-nav-item layui-hide-xs message"></li>
 					<li class="layui-nav-item layui-hide-xs"><a href="#" class="fullScreen layui-icon layui-icon-screen-full"></a></li>
 					<li class="layui-nav-item user" style="color: rgb(40,210,180);">
-						<!-- 头 像 -->
-						<a class="layui-icon layui-icon-username" href="javascript:;"></a>
+						<!-- 头 像 与 用户名（保持一行） -->
+						<a href="javascript:;" style="display:flex;align-items:center;">
+							<i class="layui-icon layui-icon-username" style="margin-right:6px;"></i>
+							<span id="current-username" th:if="${session.user}" th:text="'你好！' + ${session.user.username}"></span>
+							<span id="current-username-anon" th:unless="${session.user}">你好！游客</span>
+						</a>
 						<!-- 功 能 菜 单 -->
 						<dl class="layui-nav-child">
 							<dd><a user-menu-url="view/profile/index.html" user-menu-id="5555" user-menu-title="基本资料">基本资料</a></dd>

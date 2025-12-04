@@ -81,8 +81,7 @@ public class ApplicationController {
         String desc = body.getString("app_desc");
         java.util.List<String> managers = body.getJSONArray("app_managers") == null ? java.util.Collections.emptyList() : body.getJSONArray("app_managers").toJavaList(String.class);
         Object uObj = session.getAttribute("username");
-        if (uObj == null) { return new ResultInfo(401, "unauthorized"); }
-        String creator = String.valueOf(uObj);
+        String creator = uObj == null ? null : String.valueOf(uObj);
         managers = filterValidUsers(managers);
         try {
             ApplicationInfo saved = service.create(name, prefix, desc, managers, creator);

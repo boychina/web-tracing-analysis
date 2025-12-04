@@ -36,5 +36,9 @@ public class UserService {
         String hash = SecureUtil.sha256(ua.getSalt() + password);
         return hash.equals(ua.getPasswordHash());
     }
-}
 
+    public UserAccount findByUsername(String username) {
+        if (username == null) return null;
+        return userAccountRepository.findByUsername(username);
+    }
+}
