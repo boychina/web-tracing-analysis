@@ -1,5 +1,5 @@
 server:
-  port: 17002
+  port: 17001
   max-http-request-header-size: 20480
   servlet:
     encoding:
@@ -18,6 +18,19 @@ spring:
   web:
     resources:
       static-locations: classpath:/static/
+  datasource:
+    url: jdbc:mysql://172.17.116.99:3306/web_tracing?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    initialization-mode: always
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
 #  application:
 #    name: druid-jdbc-yasdb
 #  mvc.async.request-timeout: 20000

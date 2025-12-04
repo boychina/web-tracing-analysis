@@ -13,6 +13,10 @@ import javax.servlet.http.HttpSession;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 
+/**
+ * 验证码服务接口。
+ * 提供验证码图片生成与验证，用于登录等业务的人机校验。
+ */
 @RestController
 @RequestMapping("/captcha")
 public class CaptchaController {
@@ -20,6 +24,11 @@ public class CaptchaController {
     @Autowired
     private Producer captchaProducer;
 
+    /**
+     * 生成并返回验证码图片，同时将验证码文本写入会话。
+     * @param response HTTP 响应
+     * @param session 会话，用于存储验证码文本
+     */
     @GetMapping("/getCode")
     public void getCaptcha(HttpServletResponse response, HttpSession session) throws IOException {
         response.setContentType("image/jpeg");
@@ -35,7 +44,12 @@ public class CaptchaController {
         }
     }
 
-    //校验验证码
+    /**
+     * 校验会话中的验证码与用户输入是否一致（忽略大小写）。
+     * @param inputCaptcha 用户输入验证码
+     * @param session 会话
+     * @return 校验结果
+     */
     @GetMapping("/checkCode")
     public boolean validateCaptcha(String inputCaptcha, HttpSession session) {
         String captcha = (String) session.getAttribute("captcha");
@@ -48,4 +62,3 @@ public class CaptchaController {
 
 
 }
-

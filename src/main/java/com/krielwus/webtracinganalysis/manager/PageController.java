@@ -10,9 +10,16 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 
+/**
+ * 页面路由控制器。
+ * 根据登录态跳转到登录页或首页，并提供模板视图的映射。
+ */
 @Controller
 public class PageController {
 
+    /**
+     * 根路径：根据 Session 是否存在用户名决定跳转到登录页或首页。
+     */
     @RequestMapping("/")
     @ResponseBody
     public void page(HttpServletRequest request, HttpSession session, HttpServletResponse response) throws IOException {
@@ -23,6 +30,7 @@ public class PageController {
         }
     }
 
+    /** 登录页模板 */
     @RequestMapping("/login.html")
     public String first() {
         return "login";
@@ -34,7 +42,7 @@ public class PageController {
 //        return "login.html";
 //    }
 
-    //进入首页
+    /** 首页模板 */
     @RequestMapping("/index.html")
     public String toIndex() {
         return "index";

@@ -8,12 +8,21 @@ import org.springframework.context.annotation.Configuration;
 import java.util.Properties;
 
 @Configuration
+/**
+ * 验证码组件配置。
+ * 定义并注册 Kaptcha 的默认实例，提供验证码图片生成、样式与字符集配置，
+ * 用于登录等场景的安全校验。
+ */
 public class CaptchaConfig {
 
-    @Bean
-    public DefaultKaptcha getDefaultKaptcha() {
-        DefaultKaptcha defaultKaptcha = new DefaultKaptcha();
-        Properties properties = new Properties();
+	@Bean
+	/**
+	 * 创建默认验证码生成器。
+	 * @return Kaptcha 实例
+	 */
+	public DefaultKaptcha getDefaultKaptcha() {
+		DefaultKaptcha defaultKaptcha = new DefaultKaptcha();
+		Properties properties = new Properties();
         properties.setProperty("kaptcha.border", "no");
         properties.setProperty("kaptcha.textproducer.font.color", "black");
         properties.setProperty("kaptcha.image.width", "120");
@@ -27,8 +36,7 @@ public class CaptchaConfig {
         properties.setProperty("kaptcha.textproducer.char.length", "5");
         properties.setProperty("kaptcha.textproducer.font.names", "彩云,宋体,楷体,微软雅黑");
         Config config = new Config(properties);
-        defaultKaptcha.setConfig(config);
-        return defaultKaptcha;
-    }
+		defaultKaptcha.setConfig(config);
+		return defaultKaptcha;
+	}
 }
-

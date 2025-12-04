@@ -3,8 +3,13 @@ package com.krielwus.webtracinganalysis.util;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
+/**
+ * 菜单工具。
+ * 提供演示环境下的菜单与配置数据源，前端可直接使用服务端返回的数据渲染导航与 Tab。
+ */
 public class MenuUtil {
 
+    /** 菜单列表（演示数据，前端直接渲染） */
     private static String menu = "[\n" +
             "\t{\n" +
             "\t\t\"id\": 1,\n" +
@@ -27,13 +32,21 @@ public class MenuUtil {
             "\t\t\t\t\"type\": 1,\n" +
             "\t\t\t\t\"openType\": \"_component\",\n" +
             "\t\t\t\t\"href\": \"view/console/index.html\"\n" +
+            "\t\t\t},\n" +
+            "\t\t\t{\n" +
+            "\t\t\t\t\"id\": \"12\",\n" +
+            "\t\t\t\t\"title\": \"应用监控\",\n" +
+            "\t\t\t\t\"icon\": \"layui-icon layui-icon-console\",\n" +
+            "\t\t\t\t\"type\": 1,\n" +
+            "\t\t\t\t\"openType\": \"_component\",\n" +
+            "\t\t\t\t\"href\": \"../view/application/monitor.html\"\n" +
             "\t\t\t}\n" +
             "\t\t]\n" +
-            "\t},\n" +
-            "\t\t\n" +
+            "\t}\n" +
             "]";
 
 
+    /** 菜单配置（Logo、主题、Tab 配置等） */
     private static String menuConfigString = "{\n" +
             "\t\"logo\": {\n" +
             "\t\t\"title\": \"Pear Admin\",\n" +
@@ -111,6 +124,7 @@ public class MenuUtil {
 
 
 
+    /** 获取菜单配置 JSON */
     public static JSONObject getMenuConfig() {
         JSONObject menuConfigJson = JSONObject.parseObject(String.valueOf(menuConfigString.toString()));
 //        JSONArray menuJson = JSONArray.parseArray(menu);
@@ -118,12 +132,14 @@ public class MenuUtil {
     }
 
 
+    /** 获取菜单列表 JSON 数组 */
     public static JSONArray getMenu() {
 //        JSONObject menuJson = JSONObject.parseObject(String.valueOf(menu.toString()));
         JSONArray menuJson = JSONArray.parseArray(menu);
         return menuJson;
     }
 
+    /** 控制台打印示例 */
     public static void main(String[] args) {
         System.out.println(getMenu());
         System.out.println(getMenuConfig());

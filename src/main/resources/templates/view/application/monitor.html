@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>应用监控</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="/component/pear/css/pear.css" />
+    <link rel="stylesheet" href="/admin/css/other/analysis.css" />
+</head>
+<body>
+<div class="pear-container">
+    <div class="layui-row layui-col-space10">
+        <div class="layui-col-xs12" style="text-align:right; padding: 8px 16px;">
+            <div class="layui-inline">
+                <label class="layui-form-label" style="width:auto;">选择应用</label>
+                <div class="layui-input-inline" style="width:220px;">
+                    <select id="appSelect"></select>
+                </div>
+            </div>
+        </div>
+        <div class="layui-col-xs6 layui-col-md2">
+            <div class="layui-card top-panel">
+                <div class="layui-card-header">应用数量</div>
+                <div class="layui-card-body"><div id="m_app_num" class="top-panel-number" style="color:#28333E;">0</div></div>
+            </div>
+        </div>
+        <div class="layui-col-xs6 layui-col-md2">
+            <div class="layui-card top-panel"><div class="layui-card-header">日活跃用户</div><div class="layui-card-body"><div id="m_user" class="top-panel-number" style="color:#28333E;">0</div></div></div>
+        </div>
+        <div class="layui-col-xs6 layui-col-md2">
+            <div class="layui-card top-panel"><div class="layui-card-header">日活跃设备</div><div class="layui-card-body"><div id="m_device" class="top-panel-number" style="color:#28333E;">0</div></div></div>
+        </div>
+        <div class="layui-col-xs6 layui-col-md2">
+            <div class="layui-card top-panel"><div class="layui-card-header">日活跃会话</div><div class="layui-card-body"><div id="m_session" class="top-panel-number" style="color:#28333E;">0</div></div></div>
+        </div>
+        <div class="layui-col-xs6 layui-col-md2">
+            <div class="layui-card top-panel"><div class="layui-card-header">日点击量</div><div class="layui-card-body"><div id="m_click" class="top-panel-number" style="color:#28333E;">0</div></div></div>
+        </div>
+        <div class="layui-col-xs6 layui-col-md2">
+            <div class="layui-card top-panel"><div class="layui-card-header">日浏览PV</div><div class="layui-card-body"><div id="m_pv" class="top-panel-number" style="color:#28333E;">0</div></div></div>
+        </div>
+    </div>
+    <div class="layui-row layui-col-space10" style="margin-top:10px;">
+        <div class="layui-col-md12">
+            <div class="layui-card"><div class="layui-card-body"><div id="chart" style="height:600px;"></div></div></div>
+        </div>
+    </div>
+</div>
+<script src="/component/layui/layui.js"></script>
+<script src="/component/pear/pear.js"></script>
+<script>
+layui.use(['layer','echarts'], function(){
+    var layer = layui.layer, echarts = layui.echarts;
+    var chart = echarts.init(document.getElementById('chart'), 'walden');
+    var option = { title:{text:'一周访问趋势图'}, tooltip:{trigger:'axis'}, xAxis:{type:'category', data:[]}, yAxis:{type:'value'}, series:[{name:'PV', type:'line', smooth:true, data:[]}] };
+    chart.setOption(option);
+
+    function loadApps(){
+        fetch('/application/list').then(r=>r.json()).then(function(resp){
+            if(resp.code===1000){
+                var list = resp.data||[]; var sel = document.getElementById('appSelect'); sel.innerHTML='';
+                for(var i=0;i<list.length;i++){ var opt=document.createElement('option'); opt.value=list[i].appCode; opt.text=list[i].appName+'('+list[i].appCode+')'; sel.appendChild(opt); }
+                if(list.length>0){ sel.value = list[0].appCode; refresh(sel.value); }
+                sel.onchange=function(){ refresh(sel.value); };
+            }
+        });
+    }
+
+    function refresh(appCode){
+        fetch('/application/monitor/dailyBase?appCode='+encodeURIComponent(appCode)).then(r=>r.json()).then(function(resp){ if(resp.code===1000){ var d=resp.data[0]; document.getElementById('m_app_num').innerText=d.APPLICATION_NUM; document.getElementById('m_user').innerText=d.USER_COUNT; document.getElementById('m_device').innerText=d.DEVICE_NUM; document.getElementById('m_session').innerText=d.SESSION_UNM; document.getElementById('m_click').innerText=d.CLICK_NUM; document.getElementById('m_pv').innerText=d.PV_NUM; } });
+        var dates = getRangeDate(7); var body = { appCode: appCode, startDate: dates[0], endDate: dates[dates.length-1] };
+        fetch('/application/monitor/dailyPV', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)}).then(r=>r.json()).then(function(resp){ if(resp.code===1000){ var daily=resp.data; var xs=dates; var ys=[]; for(var i=0;i<xs.length;i++){ var y=0; for(var j=0;j<daily.length;j++){ if(daily[j].DATETIME===xs[i]) { y=daily[j].PV_NUM; break; } } ys.push(y); } chart.setOption({ xAxis:{data:xs}, series:[{name:'PV', data:ys}] }); } });
+    }
+
+    function getRangeDate(n){ var range=[]; var today=new Date(); for(var i=0;i<n;i++){ var date=new Date(today.getTime()-i*24*60*60*1000); var y=date.getFullYear(); var m=('0'+(date.getMonth()+1)).slice(-2); var d=('0'+date.getDate()).slice(-2); range.push(y+'-'+m+'-'+d);} return range.reverse(); }
+
+    loadApps();
+});
+</script>
+</body>
+</html>

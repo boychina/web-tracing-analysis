@@ -87,14 +87,66 @@
 	<script src="./component/layui/layui.js"></script>
 	<script src="./component/pear/pear.js"></script>
 	<script>
-		layui.use(['form', 'button', 'popup','toast'], function () {
-			var form = layui.form;
-			var button = layui.button;
-			var popup = layui.popup;
-			var toast = layui.toast;
+        layui.use(['form', 'button', 'popup','toast','layer'], function () {
+            var form = layui.form;
+            var button = layui.button;
+            var popup = layui.popup;
+            var toast = layui.toast;
+            var layer = layui.layer;
+
+            var regTrigger = document.querySelector('.greenText');
+            if (regTrigger) {
+                regTrigger.addEventListener('click', function(){
+                    console.log("register modal open");
+                    layer.open({
+                        title: '注册账号',
+                        area: ['420px','300px'],
+                        content: '<div style="padding:16px;">'
+                            + '<div class="layui-form-item">'
+                            + '  <label class="layui-form-label">用户名</label>'
+                            + '  <div class="layui-input-block">'
+                            + '    <input type="text" id="reg_username" placeholder="请输入用户名" autocomplete="off" class="layui-input">'
+                            + '  </div>'
+                            + '</div>'
+                            + '<div class="layui-form-item">'
+                            + '  <label class="layui-form-label">密码</label>'
+                            + '  <div class="layui-input-block">'
+                            + '    <input type="password" id="reg_password" placeholder="请输入密码" autocomplete="off" class="layui-input">'
+                            + '  </div>'
+                            + '</div>'
+                            + '<div class="layui-form-item">'
+                            + '  <div class="layui-input-block">'
+                            + '    <button class="layui-btn" id="reg_submit">提 交</button>'
+                            + '  </div>'
+                            + '</div>'
+                            + '</div>',
+                        success: function(){
+                            var btn = document.getElementById('reg_submit');
+                            if (btn) btn.addEventListener('click', function(){
+                                var u = document.getElementById('reg_username').value;
+                                var p = document.getElementById('reg_password').value;
+                                fetch('./register', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ username: u, password: p })
+                                }).then(function(resp){ return resp.json(); })
+                                  .then(function(data){
+                                      if (data.code === 200){
+                                          toast.success({ message: '注册成功，请登录' });
+                                          document.getElementById('username').value = u;
+                                          layer.closeAll();
+                                      } else {
+                                          toast.error({ message: data.msg || '注册失败' });
+                                      }
+                                  }).catch(function(){ toast.error({ message: '网络错误' }); });
+                            });
+                        }
+                    });
+                });
+            }
 
 			// 登 录 提 交
-			form.on('submit(login)', function (options) {
+            form.on('submit(login)', function (options) {
 				/// 验证验证码
 				fetch("./captcha/checkCode?inputCaptcha=" + options.field.verifyCode)
 					.then(response => {
@@ -117,7 +169,8 @@
 						// 处理错误
 						refreshCode();
 						return false;
-					});
+            });
+
 				/// 登录
 				const requestOptions = {
 					method: 'POST',

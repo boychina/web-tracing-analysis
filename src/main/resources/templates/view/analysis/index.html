@@ -185,6 +185,7 @@
             fetch(baseURL+"/webTrack/queryDailyBaseInfo").then(function (response) {
                 return response.json();
             }).then(function (data) {
+                console.log(">>>>>>data", data);
                 if (data.code === 1000){
                     var dailyBaseInfo = data.data[0];
                     if (dailyBaseInfo.DAY_TIME != null){
@@ -269,38 +270,37 @@
                 if (data.code === 1000){
                     var dailyInfo = data.data;
                     var range_date = getRangeDate(7);
-                    var application_data_num = ['1','2','5'];
-                    var application_data = ['微信公众号','支付宝生活号','支付宝小程序'];
+                    var codes = Array.from(new Set(dailyInfo.map(function (x) { return x.APP_CODE; }))).filter(function(x){return x});
+                    var nameMap = {};
+                    dailyInfo.forEach(function (x) {
+                        if (x.APP_CODE) {
+                            nameMap[x.APP_CODE] = x.APP_NAME || x.APP_CODE;
+                        }
+                    });
+                    var application_data_num = codes;
+                    var application_data = codes.map(function (c) { return nameMap[c]; });
                     var series_line_data = [];
 
                     for (let i = 0; i < application_data_num.length; i++) {
-                        //数组对象跟着应用的
+                        var code = application_data_num[i];
                         var series_line_item = {
-                            name: '',
+                            name: nameMap[code],
                             type: 'line',
                             smooth: true,
                             data: []
                         }
                         var dataStr = [];
-
                         for (let k = 0; k < range_date.length; k++) {
                             var dateOne = range_date[k];
-                            var series_line_item = {
-                                name: '',
-                                type: 'line',
-                                smooth: true,
-                                data: []
-                            }
+                            var value = 0;
                             for (let j = 0; j < dailyInfo.length; j++) {
                                 var item = dailyInfo[j];
-                                //先循环获取1的
-                                if (application_data_num[i]==item.VERSION_ID && dateOne == item.DATETIME ){
-                                    series_line_item.name = application_data[i];
-                                    dataStr.push(item.PV_NUM);
-                                }else {
-                                    continue;
+                                if (code === item.APP_CODE && dateOne === item.DATETIME) {
+                                    value = item.PV_NUM;
+                                    break;
                                 }
                             }
+                            dataStr.push(value);
                         }
                         series_line_item.data = dataStr;
                         series_line_data.push(series_line_item);
