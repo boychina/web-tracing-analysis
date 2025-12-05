@@ -17,10 +17,11 @@ import java.util.regex.Pattern;
 @Service
 public class ApplicationService {
     private final ApplicationInfoRepository repo;
+    private final TracingService tracingService;
     private static final Pattern NAME_RULE = Pattern.compile("^.{2,16}$");
     private static final Pattern PREFIX_RULE = Pattern.compile("^[A-Za-z0-9_]{2,16}$");
 
-    public ApplicationService(ApplicationInfoRepository repo) { this.repo = repo; }
+    public ApplicationService(ApplicationInfoRepository repo, TracingService tracingService) { this.repo = repo; this.tracingService = tracingService; }
 
     public List<ApplicationInfo> listAll() { return repo.findAll(); }
 
@@ -93,17 +94,14 @@ public class ApplicationService {
     }
 
     public List<Map<String, Object>> aggregateDailyPVForApp(LocalDate s, LocalDate e, String trim) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'aggregateDailyPVForApp'");
+        return tracingService.aggregateDailyPVForApp(s, e, trim);
     }
 
     public Map<String, Object> aggregateDailyBaseByApp(String trim, LocalDate today) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'aggregateDailyBaseByApp'");
+        return tracingService.aggregateDailyBaseByApp(trim, today);
     }
 
     public Map<String, Object> aggregateAllBaseByApp(String trim) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'aggregateAllBaseByApp'");
+        return tracingService.aggregateAllBaseByApp(trim);
     }
 }

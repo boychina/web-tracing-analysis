@@ -114,11 +114,13 @@ public class TracingService {
         Set<String> sessions = distinctSessionIdsRange(start, end);
         int pv = 0;
         int click = 0;
+        int error = 0;
         for (TracingEvent e : events) {
             Map<String, Object> m = parsePayload(e);
             String type = getString(m, "eventType", "EVENT_TYPE");
             if (type != null) {
                 if ("CLICK".equalsIgnoreCase(type)) click++;
+                if ("ERROR".equalsIgnoreCase(type)) error++;
             }
             if (isPV(m, type)) pv++;
         }
@@ -130,6 +132,7 @@ public class TracingService {
         item.put("SESSION_UNM", sessions.size());
         item.put("CLICK_NUM", click);
         item.put("PV_NUM", pv);
+        item.put("ERROR_NUM", error);
         return item;
     }
 
@@ -144,11 +147,13 @@ public class TracingService {
         Set<String> sessions = distinctSessionIdsAll();
         int pv = 0;
         int click = 0;
+        int error = 0;
         for (TracingEvent e : events) {
             Map<String, Object> m = parsePayload(e);
             String type = getString(m, "eventType", "EVENT_TYPE");
             if (type != null) {
                 if ("CLICK".equalsIgnoreCase(type)) click++;
+                if ("ERROR".equalsIgnoreCase(type)) error++;
             }
             if (isPV(m, type)) pv++;
         }
@@ -159,6 +164,7 @@ public class TracingService {
         item.put("SESSION_UNM", sessions.size());
         item.put("CLICK_NUM", click);
         item.put("PV_NUM", pv);
+        item.put("ERROR_NUM", error);
         return item;
     }
 
@@ -285,8 +291,14 @@ public class TracingService {
         Set<String> users = distinctSdkUserUuidsRangeByApp(start, end, appCode);
         Set<String> devices = distinctDeviceIdsRangeByApp(start, end, appCode);
         Set<String> sessions = distinctSessionIdsRangeByApp(start, end, appCode);
+        if (users.isEmpty() || devices.isEmpty() || sessions.isEmpty()) {
+            users = distinctSdkUserUuidsRangeByAppEvents(start, end, appCode);
+            devices = distinctDeviceIdsRangeByAppEvents(start, end, appCode);
+            sessions = distinctSessionIdsRangeByAppEvents(start, end, appCode);
+        }
         int pv = 0;
         int click = 0;
+        int error = 0;
         for (TracingEvent e : events) {
             if (appCode != null && appCode.length() > 0) {
                 String code = e.getAppCode();
@@ -296,17 +308,18 @@ public class TracingService {
             String type = e.getEventType() != null ? e.getEventType() : getString(m, "eventType", "EVENT_TYPE");
             if (type != null) {
                 if ("CLICK".equalsIgnoreCase(type)) click++;
+                if ("ERROR".equalsIgnoreCase(type)) error++;
             }
             if (isPV(m, type)) pv++;
         }
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("DAY_TIME", DF.format(date));
-        item.put("APPLICATION_NUM", 1);
         item.put("USER_COUNT", users.size());
         item.put("DEVICE_NUM", devices.size());
         item.put("SESSION_UNM", sessions.size());
         item.put("CLICK_NUM", click);
         item.put("PV_NUM", pv);
+        item.put("ERROR_NUM", error);
         return item;
     }
 
@@ -471,6 +484,54 @@ public class TracingService {
             Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
             String code = getString(m, "appCode", "APP_CODE");
             if (appCode != null && appCode.length() > 0 && (code == null || !code.equals(appCode))) continue;
+            String uid = getString(m, "sdkUserUuid");
+            if (uid != null && !uid.isEmpty()) set.add(uid);
+        }
+        return set;
+    }
+
+    private Set<String> distinctSessionIdsRangeByAppEvents(Date start, Date end, String appCode) {
+        List<TracingEvent> events = tracingEventRepository.findByCreatedAtBetween(start, end);
+        Set<String> set = new HashSet<>();
+        for (TracingEvent e : events) {
+            if (appCode != null && appCode.length() > 0) {
+                String code = e.getAppCode();
+                if (code == null || !code.equals(appCode)) continue;
+            }
+            String sessionId = e.getSessionId();
+            if (sessionId == null || sessionId.isEmpty()) {
+                Map<String, Object> m = parsePayload(e);
+                sessionId = getString(m, "sessionId", "SESSION_ID");
+            }
+            if (sessionId != null && !sessionId.isEmpty()) set.add(sessionId);
+        }
+        return set;
+    }
+
+    private Set<String> distinctDeviceIdsRangeByAppEvents(Date start, Date end, String appCode) {
+        List<TracingEvent> events = tracingEventRepository.findByCreatedAtBetween(start, end);
+        Set<String> set = new HashSet<>();
+        for (TracingEvent e : events) {
+            if (appCode != null && appCode.length() > 0) {
+                String code = e.getAppCode();
+                if (code == null || !code.equals(appCode)) continue;
+            }
+            Map<String, Object> m = parsePayload(e);
+            String deviceId = getString(m, "deviceId", "DEVICE_ID");
+            if (deviceId != null && !deviceId.isEmpty()) set.add(deviceId);
+        }
+        return set;
+    }
+
+    private Set<String> distinctSdkUserUuidsRangeByAppEvents(Date start, Date end, String appCode) {
+        List<TracingEvent> events = tracingEventRepository.findByCreatedAtBetween(start, end);
+        Set<String> set = new HashSet<>();
+        for (TracingEvent e : events) {
+            if (appCode != null && appCode.length() > 0) {
+                String code = e.getAppCode();
+                if (code == null || !code.equals(appCode)) continue;
+            }
+            Map<String, Object> m = parsePayload(e);
             String uid = getString(m, "sdkUserUuid");
             if (uid != null && !uid.isEmpty()) set.add(uid);
         }
