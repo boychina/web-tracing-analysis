@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS `user_account` (
   `username` VARCHAR(128) NOT NULL,
   `password_hash` VARCHAR(256) NOT NULL,
   `salt` VARCHAR(64) NOT NULL,
+  `role` VARCHAR(32) NOT NULL DEFAULT 'USER',
   `created_at` DATETIME NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`)

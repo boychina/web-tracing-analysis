@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>用户管理</title>
+    <meta name="renderer" content="webkit" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+    <link rel="stylesheet" href="./admin/css/other/analysis.css" />
+  </head>
+  <body>
+    <div class="pear-container">
+      <div class="layui-row">
+        <div class="layui-col-md12">
+          <div class="layui-card">
+            <div class="layui-card-header">
+              用户管理
+              <button
+                class="layui-btn layui-btn-sm"
+                id="btnAdd"
+                style="float: right"
+              >
+                新增用户
+              </button>
+            </div>
+            <div class="layui-card-body">
+              <table class="layui-hide" id="user-table"></table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      layui.use(["table", "layer", "form", "toast"], function () {
+        var table = layui.table,
+          layer = layui.layer,
+          form = layui.form,
+          toast = layui.toast;
+        var role = null;
+        var currentUser = null;
+        function roleLabel(code) {
+          if (code === "SUPER_ADMIN") return "超级管理员";
+          if (code === "ADMIN") return "管理员";
+          return "用户";
+        }
+        fetch("/user/me")
+          .then((r) => r.json())
+          .then(function (resp) {
+            if (resp.code === 1000) {
+              role = resp.data.role;
+              currentUser = resp.data.username;
+            }
+            var addBtn = document.getElementById("btnAdd");
+            if (addBtn) {
+              addBtn.style.display =
+                role === "SUPER_ADMIN" || role === "ADMIN" ? "" : "none";
+            }
+            reload();
+          });
+        var inst = table.render({
+          elem: "#user-table",
+          cols: [
+            [
+              { field: "id", title: "ID", width: 80 },
+              { field: "username", title: "用户名" },
+              {
+                field: "role",
+                title: "角色",
+                templet: function (d) {
+                  return roleLabel(d.role);
+                },
+              },
+              { field: "createdAt", title: "创建时间" },
+              {
+                title: "操作",
+                width: 260,
+                templet: function (d) {
+                  var btns = "";
+                  if (
+                    role === "SUPER_ADMIN" &&
+                    d.username.toLowerCase() !== "admin"
+                  ) {
+                    if (d.role !== "ADMIN")
+                      btns +=
+                        '<button class="layui-btn layui-btn-normal layui-btn-xs" data-role-admin="' +
+                        d.id +
+                        '">设为管理员</button>';
+                    if (d.role !== "USER")
+                      btns +=
+                        '<button class="layui-btn layui-btn-warm layui-btn-xs" data-role-user="' +
+                        d.id +
+                        '">设为用户</button>';
+                  }
+                  var canEdit = !(
+                    d.username.toLowerCase() === "admin" &&
+                    role !== "SUPER_ADMIN"
+                  );
+                  if (role === "USER") {
+                    canEdit =
+                      currentUser &&
+                      currentUser.toLowerCase() === d.username.toLowerCase();
+                  }
+                  if (canEdit) {
+                    btns +=
+                      '<button class="layui-btn layui-btn-xs" data-edit="' +
+                      d.id +
+                      '">编辑</button>';
+                  }
+                  var canDelete = d.username.toLowerCase() !== "admin";
+                  if (
+                    role === "ADMIN" &&
+                    currentUser &&
+                    currentUser.toLowerCase() === d.username.toLowerCase()
+                  ) {
+                    canDelete = false;
+                  }
+                  if (role === "USER") {
+                    canDelete = false;
+                  }
+                  if (canDelete) {
+                    btns +=
+                      '<button class="layui-btn layui-btn-danger layui-btn-xs" data-del="' +
+                      d.id +
+                      '">删除</button>';
+                  }
+                  return btns;
+                },
+              },
+            ],
+          ],
+          data: [],
+          page: true,
+        });
+        function reload() {
+          fetch("/user/list")
+            .then((r) => r.json())
+            .then(function (resp) {
+              if (resp.code === 1000) {
+                inst.reload({ data: resp.data });
+              }
+            });
+        }
+        document
+          .getElementById("btnAdd")
+          .addEventListener("click", function () {
+            openForm("新增用户", null);
+          });
+        document.body.addEventListener("click", function (e) {
+          var rbtnA =
+            e.target.closest && e.target.closest("button[data-role-admin]");
+          if (rbtnA) {
+            var id = Number(rbtnA.getAttribute("data-role-admin"));
+            setRole(id, "ADMIN");
+            return;
+          }
+          var rbtnU =
+            e.target.closest && e.target.closest("button[data-role-user]");
+          if (rbtnU) {
+            var id = Number(rbtnU.getAttribute("data-role-user"));
+            setRole(id, "USER");
+            return;
+          }
+          var ebtn = e.target.closest && e.target.closest("button[data-edit]");
+          if (ebtn) {
+            var id = Number(ebtn.getAttribute("data-edit"));
+            var row = findRow(id);
+            openForm("编辑用户", row);
+            return;
+          }
+          var dbtn = e.target.closest && e.target.closest("button[data-del]");
+          if (dbtn) {
+            var id = Number(dbtn.getAttribute("data-del"));
+            layer.confirm("确认删除该用户？", function (i) {
+              fetch("/user/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: id }),
+              })
+                .then((r) => r.json())
+                .then(function (resp) {
+                  if (resp.code === 1000) {
+                    toast.success({ message: "删除成功" });
+                    reload();
+                  } else {
+                    toast.error({ message: resp.msg || "删除失败" });
+                  }
+                });
+              layer.close(i);
+            });
+          }
+        });
+        function findRow(id) {
+          var cache = layui.table.cache || {};
+          var data = cache["user-table"] || [];
+          for (var i = 0; i < data.length; i++) {
+            if (Number(data[i].id) === Number(id)) return data[i];
+          }
+          return null;
+        }
+        function openForm(title, row) {
+          var initName = row ? row.username || "" : "";
+          layer.open({
+            title: title,
+            area: ["520px", "320px"],
+            content:
+              '<div style="padding:16px;">' +
+              '<div class="layui-form-item">' +
+              '  <label class="layui-form-label">用户名</label>' +
+              '  <div class="layui-input-block">' +
+              '    <input type="text" id="f_username" value="' +
+              initName +
+              '" autocomplete="off" class="layui-input">' +
+              "  </div>" +
+              "</div>" +
+              '<div class="layui-form-item">' +
+              '  <label class="layui-form-label">密码</label>' +
+              '  <div class="layui-input-block">' +
+              '    <input type="password" id="f_password" value="" autocomplete="off" class="layui-input">' +
+              "  </div>" +
+              "</div>" +
+              (role === "SUPER_ADMIN" && !row
+                ? '<div class="layui-form-item"><label class="layui-form-label">角色</label><div class="layui-input-block"><select id="f_role"><option value="USER">用户</option><option value="ADMIN">管理员</option></select></div></div>'
+                : "") +
+              '<div class="layui-form-item">' +
+              '  <div class="layui-input-block">' +
+              '    <button class="layui-btn" id="f_submit">提 交</button>' +
+              "  </div>" +
+              "</div>" +
+              "</div>",
+            success: function (layero) {
+              var btn =
+                (layero.find && layero.find("#f_submit")[0]) ||
+                document.getElementById("f_submit");
+              if (!btn) return;
+              btn.addEventListener("click", function () {
+                var name = document.getElementById("f_username").value.trim();
+                var pwd = document.getElementById("f_password").value.trim();
+                if (name.length < 2) {
+                  toast.error({ message: "用户名长度不合法" });
+                  return;
+                }
+                if (!row) {
+                  var payload = {
+                    username: name,
+                    password: pwd,
+                    role: document.getElementById("f_role")
+                      ? document.getElementById("f_role").value
+                      : "USER",
+                  };
+                  fetch("/user/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                  })
+                    .then((r) => r.json())
+                    .then(function (resp) {
+                      if (resp.code === 1000) {
+                        toast.success({ message: "新增成功" });
+                        layer.closeAll();
+                        reload();
+                      } else {
+                        toast.error({ message: resp.msg || "新增失败" });
+                      }
+                    });
+                } else {
+                  var payloadU = { id: row.id, username: name };
+                  if (pwd) payloadU.password = pwd;
+                  fetch("/user/update", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payloadU),
+                  })
+                    .then((r) => r.json())
+                    .then(function (resp) {
+                      if (resp.code === 1000) {
+                        toast.success({ message: "编辑成功" });
+                        layer.closeAll();
+                        reload();
+                      } else {
+                        toast.error({ message: resp.msg || "编辑失败" });
+                      }
+                    });
+                }
+              });
+            },
+          });
+        }
+        function setRole(id, role) {
+          fetch("/user/setRole", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: id, role: role }),
+          })
+            .then((r) => r.json())
+            .then(function (resp) {
+              if (resp.code === 1000) {
+                toast.success({ message: "角色已更新" });
+                reload();
+              } else {
+                toast.error({ message: resp.msg || "更新失败" });
+              }
+            });
+        }
+      });
+    </script>
+  </body>
+</html>

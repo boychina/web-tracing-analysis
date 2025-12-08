@@ -37,6 +37,15 @@
                 "openType": "_component",
                 "href": "view/application/index.html"
             }
+            ,
+            {
+                "id": "14",
+                "title": "用户管理",
+                "icon": "layui-icon layui-icon-user",
+                "type": 1,
+                "openType": "_component",
+                "href": "view/user/index.html"
+            }
         ]
 	},
 	{

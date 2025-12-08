@@ -26,6 +26,7 @@ public class UserService {
         ua.setUsername(username);
         ua.setSalt(salt);
         ua.setPasswordHash(hash);
+        if ("admin".equalsIgnoreCase(username)) { ua.setRole("SUPER_ADMIN"); } else { ua.setRole("USER"); }
         userAccountRepository.save(ua);
         return true;
     }
@@ -40,5 +41,46 @@ public class UserService {
     public UserAccount findByUsername(String username) {
         if (username == null) return null;
         return userAccountRepository.findByUsername(username);
+    }
+
+    @Transactional
+    public UserAccount create(String username, String password, String role) {
+        if (username == null || username.trim().isEmpty()) return null;
+        if (password == null || password.trim().isEmpty()) return null;
+        if (userAccountRepository.findByUsername(username) != null) return null;
+        String salt = RandomUtil.randomString(16);
+        String hash = SecureUtil.sha256(salt + password);
+        UserAccount ua = new UserAccount();
+        ua.setUsername(username.trim());
+        ua.setSalt(salt);
+        ua.setPasswordHash(hash);
+        if (role == null || role.trim().isEmpty()) role = "USER";
+        ua.setRole(role);
+        return userAccountRepository.save(ua);
+    }
+
+    @Transactional
+    public UserAccount update(Long id, String username, String password, String role) {
+        if (id == null) return null;
+        UserAccount ua = userAccountRepository.findById(id).orElse(null);
+        if (ua == null) return null;
+        if (username != null && !username.trim().isEmpty()) ua.setUsername(username.trim());
+        if (password != null && !password.trim().isEmpty()) {
+            String salt = RandomUtil.randomString(16);
+            String hash = SecureUtil.sha256(salt + password);
+            ua.setSalt(salt);
+            ua.setPasswordHash(hash);
+        }
+        if (role != null && !role.trim().isEmpty()) ua.setRole(role.trim());
+        return userAccountRepository.save(ua);
+    }
+
+    @Transactional
+    public boolean delete(Long id) {
+        if (id == null) return false;
+        UserAccount ua = userAccountRepository.findById(id).orElse(null);
+        if (ua == null) return false;
+        userAccountRepository.deleteById(id);
+        return true;
     }
 }

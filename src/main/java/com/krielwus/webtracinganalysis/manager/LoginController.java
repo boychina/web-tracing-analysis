@@ -50,6 +50,7 @@ public class LoginController {
                 if (user != null) {
                     session.setAttribute("user", user);
                     session.setAttribute("username", user.getUsername());
+                    session.setAttribute("role", user.getRole());
                 } else {
                     session.setAttribute("username", username);
                 }

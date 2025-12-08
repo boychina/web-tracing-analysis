@@ -48,6 +48,9 @@ public class ViewController {
     @RequestMapping("/application/monitor.html")
     public String toApplicationMonitor() { return "/view/application/monitor"; }
 
+    @RequestMapping("/user/index.html")
+    public String toUserIndex() { return "/view/user/index"; }
+
     @RequestMapping("/403")
     public String exception_403() {
         return "view/exception/403";
