@@ -40,6 +40,8 @@
           form = layui.form,
           toast = layui.toast;
         var base = "";
+        var currentUser = null;
+        var currentRole = null;
         var inst = table.render({
           elem: "#app-table",
           cols: [
@@ -50,20 +52,21 @@
               { field: "appCodePrefix", title: "代码前缀" },
               { field: "appDesc", title: "描述" },
               { field: "appManagers", title: "管理员", templet: function(d){
-                  try { var arr = JSON.parse(d.appManagers||'[]'); return Array.isArray(arr)? arr.join(',') : ''; } catch(e){ return ''; }
+                  try { var arr = JSON.parse(d.appManagers||'[]'); if (!Array.isArray(arr)) return ''; var names = []; for (var i=0;i<arr.length;i++){ var id = arr[i]; if (window.__userCache && window.__userCache[id]) names.push(window.__userCache[id]); else names.push(String(id)); } return names.join(','); } catch(e){ return ''; }
                 } },
               {
                 title: "操作",
                 width: 200,
                 templet: function (d) {
-                  return (
-                    '<button class="layui-btn layui-btn-xs" data-edit="' +
-                    d.id +
-                    '">编辑</button>' +
-                    '<button class="layui-btn layui-btn-danger layui-btn-xs" data-del="' +
-                    d.id +
-                    '">删除</button>'
-                  );
+                  var btns = '';
+                  var allowEdit = false, allowDel = false;
+                  if (currentRole === 'SUPER_ADMIN') { allowEdit = true; allowDel = true; }
+                  else if (currentRole === 'ADMIN') {
+                    try { var arr = JSON.parse(d.appManagers||'[]'); if (Array.isArray(arr)) { var uid = currentUser && currentUser.id; allowEdit = arr.indexOf(String(uid))>=0 || arr.indexOf(uid)>=0; allowDel = allowEdit; } } catch(e){}
+                  }
+                  if (allowEdit) btns += '<button class="layui-btn layui-btn-xs" data-edit="'+d.id+'">编辑</button>';
+                  if (allowDel) btns += '<button class="layui-btn layui-btn-danger layui-btn-xs" data-del="'+d.id+'">删除</button>';
+                  return btns;
                 },
               },
             ],
@@ -81,7 +84,7 @@
               }
             });
         }
-        reload();
+        fetch('/user/me').then(r=>r.json()).then(function(resp){ if(resp.code===1000){ currentUser = { id: resp.data.id, username: resp.data.username }; currentRole = resp.data.role; } var btn = document.getElementById('btnAdd'); if (btn) { btn.style.display = (currentRole==='SUPER_ADMIN' || currentRole==='ADMIN') ? '' : 'none'; } fetch('/application/users').then(r=>r.json()).then(function(us){ if(us.code===1000){ window.__userCache = {}; var arr = us.data||[]; for (var i=0;i<arr.length;i++){ window.__userCache[String(arr[i].id)] = arr[i].username; } } reload(); }); });
 
         document
           .getElementById("btnAdd")
@@ -179,12 +182,13 @@
                 var selected = [];
                 try { selected = row && row.appManagers ? JSON.parse(row.appManagers) : []; } catch(e){ selected = []; }
                 if (resp.code===1000) {
-                  var names = resp.data || [];
+                  var users = resp.data || [];
+                  window.__userCache = window.__userCache || {};
                   var html = '';
-                  for (var i=0;i<names.length;i++) {
-                    var n = names[i];
-                    var checked = selected.indexOf(n)>=0 ? 'checked' : '';
-                    html += '<input type="checkbox" name="f_app_managers" value="'+n+'" '+checked+' title="'+n+'" style="margin-right:8px;">'+n+'\n';
+                  for (var i=0;i<users.length;i++) {
+                    var u = users[i]; window.__userCache[String(u.id)] = u.username;
+                    var checked = selected.indexOf(String(u.id))>=0 || selected.indexOf(u.id)>=0 ? 'checked' : '';
+                    html += '<input type="checkbox" name="f_app_managers" value="'+u.id+'" '+checked+' title="'+u.username+'" style="margin-right:8px;">'+u.username+'\n';
                   }
                   box.innerHTML = html;
                 } else {
@@ -199,7 +203,7 @@
               if (name.length < 2 || name.length > 16) { toast.error({ message: "应用名称长度需2-16" }); return false; }
               if (!/^[A-Za-z0-9_]{2,16}$/.test(prefix)) { toast.error({ message: "代码前缀需2-16位字母数字下划线" }); return false; }
               var checks = document.querySelectorAll('input[name="f_app_managers"]:checked');
-              var managers = []; for (var i=0;i<checks.length;i++){ managers.push(checks[i].value); }
+              var managers = []; for (var i=0;i<checks.length;i++){ managers.push(String(checks[i].value)); }
               var payload = row ? { id: row.id, app_name: name, app_code_prefix: prefix, app_desc: desc, app_managers: managers } : { app_name: name, app_code_prefix: prefix, app_desc: desc, app_managers: managers };
               var url = row ? "/application/update" : "/application/create";
               fetch(base + url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })

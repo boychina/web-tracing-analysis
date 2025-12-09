@@ -80,9 +80,11 @@ public class ApplicationController {
         String prefix = body.getString("app_code_prefix");
         String desc = body.getString("app_desc");
         java.util.List<String> managers = body.getJSONArray("app_managers") == null ? java.util.Collections.emptyList() : body.getJSONArray("app_managers").toJavaList(String.class);
-        Object uObj = session.getAttribute("username");
-        String creator = uObj == null ? null : String.valueOf(uObj);
-        managers = filterValidUsers(managers);
+        com.krielwus.webtracinganalysis.entity.UserAccount u = (com.krielwus.webtracinganalysis.entity.UserAccount) session.getAttribute("user");
+        String role = String.valueOf(session.getAttribute("role"));
+        if (role == null || (!"SUPER_ADMIN".equals(role) && !"ADMIN".equals(role))) { return new ResultInfo(403, "forbidden"); }
+        String creator = (u == null || u.getId() == null) ? null : String.valueOf(u.getId());
+        managers = filterValidUserIds(managers);
         try {
             ApplicationInfo saved = service.create(name, prefix, desc, managers, creator);
             return new ResultInfo(1000, "success", saved);
@@ -102,10 +104,11 @@ public class ApplicationController {
         String prefix = body.getString("app_code_prefix");
         String desc = body.getString("app_desc");
         java.util.List<String> managers = body.getJSONArray("app_managers") == null ? null : body.getJSONArray("app_managers").toJavaList(String.class);
-        if (managers != null) managers = filterValidUsers(managers);
-        Object uObj = session.getAttribute("username");
-        if (uObj == null) { return new ResultInfo(401, "unauthorized"); }
-        String operator = String.valueOf(uObj);
+        if (managers != null) managers = filterValidUserIds(managers);
+        com.krielwus.webtracinganalysis.entity.UserAccount u = (com.krielwus.webtracinganalysis.entity.UserAccount) session.getAttribute("user");
+        String role = String.valueOf(session.getAttribute("role"));
+        if (u == null || u.getId() == null) { return new ResultInfo(401, "unauthorized"); }
+        String operator = "SUPER_ADMIN".equals(role) ? "admin" : String.valueOf(u.getId());
         try {
             ApplicationInfo saved = service.update(id, name, prefix, desc, managers, operator);
             return new ResultInfo(1000, "success", saved);
@@ -126,9 +129,10 @@ public class ApplicationController {
         if (body == null) { return new ResultInfo(400, "body required"); }
         Long id = body.getLong("id");
         if (id == null) { return new ResultInfo(400, "id required"); }
-        Object uObj = session.getAttribute("username");
-        if (uObj == null) { return new ResultInfo(401, "unauthorized"); }
-        String operator = String.valueOf(uObj);
+        com.krielwus.webtracinganalysis.entity.UserAccount u = (com.krielwus.webtracinganalysis.entity.UserAccount) session.getAttribute("user");
+        String role = String.valueOf(session.getAttribute("role"));
+        if (u == null || u.getId() == null) { return new ResultInfo(401, "unauthorized"); }
+        String operator = "SUPER_ADMIN".equals(role) ? "admin" : String.valueOf(u.getId());
         try {
             service.delete(id, operator);
             return new ResultInfo(1000, "success");
@@ -144,17 +148,22 @@ public class ApplicationController {
     @GetMapping("/users")
     public ResultInfo users() {
         java.util.List<com.krielwus.webtracinganalysis.entity.UserAccount> list = userRepo.findAll();
-        java.util.List<String> names = new java.util.ArrayList<>();
-        for (com.krielwus.webtracinganalysis.entity.UserAccount u : list) names.add(u.getUsername());
-        return new ResultInfo(1000, "success", names);
+        java.util.List<java.util.Map<String,Object>> users = new java.util.ArrayList<>();
+        for (com.krielwus.webtracinganalysis.entity.UserAccount u : list) {
+            java.util.Map<String,Object> m = new java.util.HashMap<>(); m.put("id", u.getId()); m.put("username", u.getUsername()); users.add(m);
+        }
+        return new ResultInfo(1000, "success", users);
     }
 
-    private java.util.List<String> filterValidUsers(java.util.List<String> managers) {
+    private java.util.List<String> filterValidUserIds(java.util.List<String> managers) {
         java.util.HashSet<String> set = new java.util.HashSet<>();
         for (String m : managers) {
             if (m == null) continue;
-            com.krielwus.webtracinganalysis.entity.UserAccount ua = userRepo.findByUsername(m);
-            if (ua != null) set.add(m);
+            try {
+                Long id = Long.valueOf(m);
+                com.krielwus.webtracinganalysis.entity.UserAccount ua = userRepo.findById(id).orElse(null);
+                if (ua != null) set.add(String.valueOf(id));
+            } catch (Exception ignore) {}
         }
         return new java.util.ArrayList<>(set);
     }
