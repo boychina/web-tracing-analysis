@@ -102,12 +102,21 @@
 				// 渲染
 				admin.render();
 
+				function setUserHeader(u){
+					var el = document.getElementById('current-username');
+					var anon = document.getElementById('current-username-anon');
+					if (u && u.username){ if (el) el.textContent = '你好！' + u.username; if (anon) anon.style.display = 'none'; }
+				}
+				try { var cache = JSON.parse(localStorage.getItem('__userState')||'null'); if (cache) { window.__userState = cache; setUserHeader(cache); } } catch(e){}
+				fetch('/user/me', { credentials: 'same-origin' }).then(function(r){ return r.json(); }).then(function(resp){ if (resp.code===1000) { var u = { id: resp.data.id, username: resp.data.username, role: resp.data.role }; window.__userState = u; localStorage.setItem('__userState', JSON.stringify(u)); setUserHeader(u); } });
+
 				// 注销
 				admin.logout(function(){
 
 					popup.success("注销成功",function(){
 						location.href = "./login.html";
 					})
+					try { localStorage.removeItem('__userState'); } catch(e){}
 
 					// 清空 tabs 缓存
 					return new Promise((resolve) => {
