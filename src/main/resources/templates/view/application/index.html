@@ -20,7 +20,7 @@
               应用管理
               <button
                 class="layui-btn layui-btn-sm"
-                id="btnAdd"
+                id="app-btnAdd"
                 style="float: right"
               >
                 注册应用
@@ -64,8 +64,8 @@
                   else if (currentRole === 'ADMIN') {
                     try { var arr = JSON.parse(d.appManagers||'[]'); if (Array.isArray(arr)) { var uid = currentUser && currentUser.id; allowEdit = arr.indexOf(String(uid))>=0 || arr.indexOf(uid)>=0; allowDel = allowEdit; } } catch(e){}
                   }
-                  if (allowEdit) btns += '<button class="layui-btn layui-btn-xs" data-edit="'+d.id+'">编辑</button>';
-                  if (allowDel) btns += '<button class="layui-btn layui-btn-danger layui-btn-xs" data-del="'+d.id+'">删除</button>';
+                  if (allowEdit) btns += '<button class="layui-btn layui-btn-xs" data-app-edit="'+d.id+'">编辑</button>';
+                  if (allowDel) btns += '<button class="layui-btn layui-btn-danger layui-btn-xs" data-app-del="'+d.id+'">删除</button>';
                   return btns;
                 },
               },
@@ -87,23 +87,23 @@
         fetch('/user/me').then(r=>r.json()).then(function(resp){ if(resp.code===1000){ currentUser = { id: resp.data.id, username: resp.data.username }; currentRole = resp.data.role; } var btn = document.getElementById('btnAdd'); if (btn) { btn.style.display = (currentRole==='SUPER_ADMIN' || currentRole==='ADMIN') ? '' : 'none'; } fetch('/application/users').then(r=>r.json()).then(function(us){ if(us.code===1000){ window.__userCache = {}; var arr = us.data||[]; for (var i=0;i<arr.length;i++){ window.__userCache[String(arr[i].id)] = arr[i].username; } } reload(); }); });
 
         document
-          .getElementById("btnAdd")
+          .getElementById("app-btnAdd")
           .addEventListener("click", function () {
-            openForm("注册应用", null);
+            openAppForm("注册应用", null);
           });
 
         document.body.addEventListener("click", function (e) {
           var editBtn =
-            e.target.closest && e.target.closest("button[data-edit]");
+            e.target.closest && e.target.closest("button[data-app-edit]");
           if (editBtn) {
-            var id = editBtn.getAttribute("data-edit");
+            var id = editBtn.getAttribute("data-app-edit");
             var row = findRow(id);
-            openForm("编辑应用", row);
+            openAppForm("编辑应用", row);
             return;
           }
-          var delBtn = e.target.closest && e.target.closest("button[data-del]");
+          var delBtn = e.target.closest && e.target.closest("button[data-app-del]");
           if (delBtn) {
-            var id = delBtn.getAttribute("data-del");
+            var id = delBtn.getAttribute("data-app-del");
             layer.confirm("确认删除该应用？", function (idx) {
               fetch(base + "/application/delete", {
                 method: "POST",
@@ -133,7 +133,7 @@
           return null;
         }
 
-        function openForm(title, row) {
+        function openAppForm(title, row) {
           var initName = row ? row.appName || "" : "";
           var initPrefix = row ? row.appCodePrefix || "" : "";
           var initDesc = row ? row.appDesc || "" : "";

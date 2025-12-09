@@ -20,7 +20,7 @@
               用户管理
               <button
                 class="layui-btn layui-btn-sm"
-                id="btnAdd"
+                id="user-btnAdd"
                 style="float: right"
               >
                 新增用户
@@ -53,7 +53,7 @@
               role = resp.data.role;
               currentUser = resp.data.username;
             }
-            var addBtn = document.getElementById("btnAdd");
+            var addBtn = document.getElementById("user-btnAdd");
             if (addBtn) {
               addBtn.style.display =
                 role === "SUPER_ADMIN" || role === "ADMIN" ? "" : "none";
@@ -85,12 +85,12 @@
                   ) {
                     if (d.role !== "ADMIN")
                       btns +=
-                        '<button class="layui-btn layui-btn-normal layui-btn-xs" data-role-admin="' +
+                        '<button class="layui-btn layui-btn-normal layui-btn-xs" data-user-role-admin="' +
                         d.id +
                         '">设为管理员</button>';
                     if (d.role !== "USER")
                       btns +=
-                        '<button class="layui-btn layui-btn-warm layui-btn-xs" data-role-user="' +
+                        '<button class="layui-btn layui-btn-warm layui-btn-xs" data-user-role-user="' +
                         d.id +
                         '">设为用户</button>';
                   }
@@ -105,7 +105,7 @@
                   }
                   if (canEdit) {
                     btns +=
-                      '<button class="layui-btn layui-btn-xs" data-edit="' +
+                      '<button class="layui-btn layui-btn-xs" data-user-edit="' +
                       d.id +
                       '">编辑</button>';
                   }
@@ -122,7 +122,7 @@
                   }
                   if (canDelete) {
                     btns +=
-                      '<button class="layui-btn layui-btn-danger layui-btn-xs" data-del="' +
+                      '<button class="layui-btn layui-btn-danger layui-btn-xs" data-user-del="' +
                       d.id +
                       '">删除</button>';
                   }
@@ -144,35 +144,35 @@
             });
         }
         document
-          .getElementById("btnAdd")
+          .getElementById("user-btnAdd")
           .addEventListener("click", function () {
-            openForm("新增用户", null);
+            openUserForm("新增用户", null);
           });
         document.body.addEventListener("click", function (e) {
           var rbtnA =
-            e.target.closest && e.target.closest("button[data-role-admin]");
+            e.target.closest && e.target.closest("button[data-user-role-admin]");
           if (rbtnA) {
-            var id = Number(rbtnA.getAttribute("data-role-admin"));
+            var id = Number(rbtnA.getAttribute("data-user-role-admin"));
             setRole(id, "ADMIN");
             return;
           }
           var rbtnU =
-            e.target.closest && e.target.closest("button[data-role-user]");
+            e.target.closest && e.target.closest("button[data-user-role-user]");
           if (rbtnU) {
-            var id = Number(rbtnU.getAttribute("data-role-user"));
+            var id = Number(rbtnU.getAttribute("data-user-role-user"));
             setRole(id, "USER");
             return;
           }
-          var ebtn = e.target.closest && e.target.closest("button[data-edit]");
+          var ebtn = e.target.closest && e.target.closest("button[data-user-edit]");
           if (ebtn) {
-            var id = Number(ebtn.getAttribute("data-edit"));
+            var id = Number(ebtn.getAttribute("data-user-edit"));
             var row = findRow(id);
-            openForm("编辑用户", row);
+            openUserForm("编辑用户", row);
             return;
           }
-          var dbtn = e.target.closest && e.target.closest("button[data-del]");
+          var dbtn = e.target.closest && e.target.closest("button[data-user-del]");
           if (dbtn) {
-            var id = Number(dbtn.getAttribute("data-del"));
+            var id = Number(dbtn.getAttribute("data-user-del"));
             layer.confirm("确认删除该用户？", function (i) {
               fetch("/user/delete", {
                 method: "POST",
@@ -200,7 +200,7 @@
           }
           return null;
         }
-        function openForm(title, row) {
+        function openUserForm(title, row) {
           var initName = row ? row.username || "" : "";
           layer.open({
             title: title,
@@ -226,14 +226,14 @@
                 : "") +
               '<div class="layui-form-item">' +
               '  <div class="layui-input-block">' +
-              '    <button class="layui-btn" id="f_submit">提 交</button>' +
+              '    <button class="layui-btn" id="user_submit">提 交</button>' +
               "  </div>" +
               "</div>" +
               "</div>",
             success: function (layero) {
               var btn =
-                (layero.find && layero.find("#f_submit")[0]) ||
-                document.getElementById("f_submit");
+                (layero.find && layero.find("#user_submit")[0]) ||
+                document.getElementById("user_submit");
               if (!btn) return;
               btn.addEventListener("click", function () {
                 var name = document.getElementById("f_username").value.trim();

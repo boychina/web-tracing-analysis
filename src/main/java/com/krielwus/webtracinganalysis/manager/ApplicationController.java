@@ -73,6 +73,21 @@ public class ApplicationController {
         }
     }
 
+    @GetMapping("/monitor/weeklyPagePV")
+    public ResultInfo weeklyPagePV(@RequestParam("appCode") String appCode,
+                                   @RequestParam(value = "days", required = false) Integer days) {
+        if (appCode == null || appCode.trim().isEmpty()) { return new ResultInfo(400, "appCode required"); }
+        int d = (days == null || days < 1) ? 7 : days;
+        try {
+            java.time.LocalDate end = java.time.LocalDate.now();
+            java.time.LocalDate start = end.minusDays(d - 1);
+            java.util.List<java.util.Map<String,Object>> list = service.aggregatePagePVForApp(start, end, appCode.trim());
+            return new ResultInfo(1000, "success", list);
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
     @PostMapping("/create")
     public ResultInfo create(@RequestBody JSONObject body, javax.servlet.http.HttpSession session) {
         if (body == null) { return new ResultInfo(400, "body required"); }

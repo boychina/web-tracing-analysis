@@ -85,9 +85,12 @@
 		<div class="pear-collapsed-pe collapse">
 			<a href="#" class="layui-icon layui-icon-shrink-right"></a>
 		</div>
-		<!-- 依 赖 脚 本 -->
-		<script src="./component/layui/layui.js"></script>
-		<script src="./component/pear/pear.js"></script>
+        <!-- 依 赖 脚 本 -->
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/yamljs@0.3.0/dist/yaml.min.js"></script>
+        <script src="./component/layui/layui.js"></script>
+        <script src="./component/pear/pear.js"></script>
 		<!-- 框 架 初 始 化 -->
 		<script>
 			layui.use(['admin','jquery','popup'], function() {
@@ -105,9 +108,10 @@
 				function setUserHeader(u){
 					var el = document.getElementById('current-username');
 					var anon = document.getElementById('current-username-anon');
-					if (u && u.username){ if (el) el.textContent = '你好！' + u.username; if (anon) anon.style.display = 'none'; }
+					if (u && u.username){ if (el) { el.textContent = '你好！' + u.username; el.style.display = ''; } if (anon) anon.style.display = 'none'; } else { if (el) el.style.display = 'none'; if (anon) anon.style.display = ''; }
 				}
-				try { var cache = JSON.parse(localStorage.getItem('__userState')||'null'); if (cache) { window.__userState = cache; setUserHeader(cache); } } catch(e){}
+				setUserHeader(null);
+				try { var cache = JSON.parse(localStorage.getItem('__userState')||'null'); if (cache) { window.__userState = cache; } } catch(e){}
 				fetch('/user/me', { credentials: 'same-origin' }).then(function(r){ return r.json(); }).then(function(resp){ if (resp.code===1000) { var u = { id: resp.data.id, username: resp.data.username, role: resp.data.role }; window.__userState = u; localStorage.setItem('__userState', JSON.stringify(u)); setUserHeader(u); } });
 
 				// 注销

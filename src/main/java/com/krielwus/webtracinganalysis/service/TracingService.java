@@ -330,6 +330,7 @@ public class TracingService {
         Set<String> sessions = distinctSessionIdsAllByApp(appCode);
         int pv = 0;
         int click = 0;
+        int error = 0;
         for (TracingEvent e : events) {
             if (appCode != null && appCode.length() > 0) {
                 String code = e.getAppCode();
@@ -339,6 +340,7 @@ public class TracingService {
             String type = e.getEventType() != null ? e.getEventType() : getString(m, "eventType", "EVENT_TYPE");
             if (type != null) {
                 if ("CLICK".equalsIgnoreCase(type)) click++;
+                if ("ERROR".equalsIgnoreCase(type)) error++;
             }
             if (isPV(m, type)) pv++;
         }
@@ -349,6 +351,7 @@ public class TracingService {
         item.put("SESSION_UNM", sessions.size());
         item.put("CLICK_NUM", click);
         item.put("PV_NUM", pv);
+        item.put("ERROR_NUM", error);
         return item;
     }
 
@@ -372,6 +375,35 @@ public class TracingService {
             row.put("APP_CODE", appCode);
             row.put("DATETIME", DF.format(d));
             row.put("PV_NUM", pv);
+            out.add(row);
+        }
+        return out;
+    }
+
+    public List<Map<String, Object>> aggregatePagePVForApp(LocalDate startDate, LocalDate endDate, String appCode) {
+        Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        List<TracingEvent> events = tracingEventRepository.findByCreatedAtBetween(start, end);
+        Map<String, Integer> pvByPage = new HashMap<>();
+        for (TracingEvent e : events) {
+            if (appCode != null && appCode.length() > 0) {
+                String code = e.getAppCode();
+                if (code == null || !code.equals(appCode)) continue;
+            }
+            Map<String, Object> m = parsePayload(e);
+            String type = e.getEventType() != null ? e.getEventType() : getString(m, "eventType", "EVENT_TYPE");
+            if (!isPV(m, type)) continue;
+            String url = getString(m, "triggerPageUrl", "pageUrl", "URL", "PAGE_URL");
+            if (url == null || url.isEmpty()) continue;
+            pvByPage.put(url, pvByPage.getOrDefault(url, 0) + 1);
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        List<Map.Entry<String, Integer>> entries = new ArrayList<>(pvByPage.entrySet());
+        entries.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+        for (Map.Entry<String, Integer> en : entries) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("PAGE_URL", en.getKey());
+            row.put("PV_NUM", en.getValue());
             out.add(row);
         }
         return out;

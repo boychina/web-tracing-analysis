@@ -104,4 +104,8 @@ public class ApplicationService {
     public Map<String, Object> aggregateAllBaseByApp(String trim) {
         return tracingService.aggregateAllBaseByApp(trim);
     }
+
+    public List<Map<String, Object>> aggregatePagePVForApp(LocalDate start, LocalDate end, String trim) {
+        return tracingService.aggregatePagePVForApp(start, end, trim);
+    }
 }

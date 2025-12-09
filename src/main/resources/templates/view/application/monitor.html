@@ -61,6 +61,7 @@
                 </div>
               </div>
             </div>
+            <div class="layui-card-header" style="font-size: smaller; font-family: system-ui; color: #999">历史用户数: <span id="sumUser">0</span></div>
           </div>
         </div>
         <div class="layui-col-xs6 layui-col-md2">
@@ -85,6 +86,7 @@
                 </div>
               </div>
             </div>
+            <div class="layui-card-header" style="font-size: smaller; font-family: system-ui; color: #999">历史设备数: <span id="sumDevices">0</span></div>
           </div>
         </div>
         <div class="layui-col-xs6 layui-col-md2">
@@ -109,6 +111,7 @@
                 </div>
               </div>
             </div>
+            <div class="layui-card-header" style="font-size: smaller; font-family: system-ui; color: #999">历史会话数: <span id="sumSession">0</span></div>
           </div>
         </div>
         <div class="layui-col-xs6 layui-col-md2">
@@ -133,6 +136,7 @@
                 </div>
               </div>
             </div>
+            <div class="layui-card-header" style="font-size: smaller; font-family: system-ui; color: #999">历史点击量: <span id="sumClick">0</span></div>
           </div>
         </div>
         <div class="layui-col-xs6 layui-col-md2">
@@ -157,6 +161,7 @@
                 </div>
               </div>
             </div>
+            <div class="layui-card-header" style="font-size: smaller; font-family: system-ui; color: #999">历史浏览数: <span id="sumPages">0</span></div>
           </div>
         </div>
         <div class="layui-col-xs6 layui-col-md2">
@@ -181,6 +186,7 @@
                 </div>
               </div>
             </div>
+            <div class="layui-card-header" style="font-size: smaller; font-family: system-ui; color: #999">历史错误数: <span id="sumError">0</span></div>
           </div>
         </div>
       </div>
@@ -188,7 +194,17 @@
         <div class="layui-col-md12">
           <div class="layui-card">
             <div class="layui-card-body">
-              <div id="chart" style="height: 600px"></div>
+              <div id="chart" style="height: 300px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="layui-row layui-col-space10" style="margin-top: 10px">
+        <div class="layui-col-md12">
+          <div class="layui-card">
+            <div class="layui-card-header">本周各页面 PV</div>
+            <div class="layui-card-body">
+              <div id="pageChart" style="height: 360px"></div>
             </div>
           </div>
         </div>
@@ -205,16 +221,18 @@
             $ = layui.jquery;
           var chart = echarts.init(document.getElementById("chart"), "walden");
           var option = {
-            title: { text: "一周访问趋势图" },
+            title: { text: "一周访问趋势图", textStyle: { color: "#28333e", fontSize: 14 } },
             tooltip: { trigger: "axis" },
             xAxis: { type: "category", data: [] },
             yAxis: { type: "value" },
             series: [{ name: "PV", type: "line", smooth: true, data: [] }],
           };
           chart.setOption(option);
-          window.onresize = function () {
-            chart.resize();
-          };
+          window.__charts = window.__charts || [];
+          window.__charts.push(chart);
+          window.addEventListener('resize', function(){
+            try { (window.__charts||[]).forEach(function(c){ if(c && c.resize) c.resize(); }); } catch(e){}
+          });
 
           function loadApps() {
             fetch("/application/list")
@@ -306,6 +324,33 @@
                   } catch (e) {}
                 }
               });
+            // 历史累计指标
+            fetch('/application/monitor/allBase?appCode=' + encodeURIComponent(appCode))
+              .then(function(r){ return r.json(); })
+              .then(function(resp){
+                if (resp.code === 1000) {
+                  var d = resp.data;
+                  var allBaseInfo = Array.isArray(d) ? d[0] : d;
+                  console.log(">>>>>>>>>allBaseInfo", allBaseInfo);
+                  // {
+                  //     "APPLICATION_NUM": 1,
+                  //     "USER_COUNT": 4,
+                  //     "DEVICE_NUM": 2,
+                  //     "SESSION_UNM": 9,
+                  //     "CLICK_NUM": 12,
+                  //     "PV_NUM": 33,
+                  //     "ERROR_NUM": 24
+                  // }
+                  if (allBaseInfo) {
+                    document.getElementById('sumUser').innerText = allBaseInfo.USER_COUNT || 0;
+                    document.getElementById('sumDevices').innerText = allBaseInfo.DEVICE_NUM || 0;
+                    document.getElementById('sumSession').innerText = allBaseInfo.SESSION_UNM || 0;
+                    document.getElementById('sumClick').innerText = allBaseInfo.CLICK_NUM || 0;
+                    document.getElementById('sumPages').innerText = allBaseInfo.PV_NUM || 0;
+                    document.getElementById('sumError').innerText = allBaseInfo.ERROR_NUM || 0;
+                  }
+                }
+              });
             var dates = getRangeDate(7);
             var body = {
               appCode: appCode,
@@ -337,6 +382,26 @@
                     xAxis: { data: xs },
                     series: [{ name: "PV", data: ys }],
                   });
+                }
+              });
+            // 本周各页面 PV 聚合
+            fetch('/application/monitor/weeklyPagePV?appCode=' + encodeURIComponent(appCode))
+              .then(function(r){ return r.json(); })
+              .then(function(resp){
+                if (resp.code === 1000) {
+                  var items = resp.data || [];
+                  // 只取前 10 个页面，避免过多分类
+                  items = items.slice(0, 10);
+                  var xs = items.map(function(it){ return it.PAGE_URL; });
+                  var ys = items.map(function(it){ return it.PV_NUM; });
+                  var pchart = echarts.init(document.getElementById('pageChart'), 'walden');
+                  pchart.setOption({
+                    tooltip: { trigger: 'axis' },
+                    xAxis: { type: 'category', data: xs, axisLabel: { interval: 0, rotate: 30 } },
+                    yAxis: { type: 'value' },
+                    series: [{ name: 'PV', type: 'bar', data: ys }]
+                  });
+                  try { window.__charts.push(pchart); } catch(e){}
                 }
               });
           }

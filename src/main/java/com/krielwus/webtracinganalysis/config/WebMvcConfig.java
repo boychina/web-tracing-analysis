@@ -2,6 +2,7 @@ package com.krielwus.webtracinganalysis.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -30,6 +31,24 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .exposedHeaders("**");
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new AuthInterceptor())
+                .addPathPatterns(
+                        "/user/**",
+                        "/application/**",
+                        "/getAllTracingList",
+                        "/getBaseInfo",
+                        "/cleanTracingList"
+                )
+                .excludePathPatterns(
+                        "/login",
+                        "/register",
+                        "/captcha/**",
+                        "/trackweb"
+                );
     }
 
 }
