@@ -1,5 +1,5 @@
 server:
-  port: 17001
+  port: ${SERVER_PORT:17001}
   max-http-request-header-size: 20480
   servlet:
     encoding:
@@ -19,10 +19,10 @@ spring:
     resources:
       static-locations: classpath:/static/
   datasource:
-    url: jdbc:mysql://172.17.116.99:3306/web_tracing?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC
-    username: root
-    password: 123456
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
     initialization-mode: always
   jpa:
     hibernate:
