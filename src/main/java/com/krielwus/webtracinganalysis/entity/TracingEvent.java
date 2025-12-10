@@ -9,7 +9,11 @@ import java.util.Date;
  * 便于后续检索、分析与聚合统计。
  */
 @Entity
-@Table(name = "trace_event")
+@Table(name = "trace_event", indexes = {
+        @Index(name = "idx_trace_event_type", columnList = "event_type"),
+        @Index(name = "idx_trace_app_code", columnList = "app_code"),
+        @Index(name = "idx_trace_created_at", columnList = "created_at")
+})
 public class TracingEvent {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

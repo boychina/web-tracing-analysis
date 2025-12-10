@@ -8,6 +8,15 @@ import com.krielwus.webtracinganalysis.repository.BaseInfoRecordRepository;
 import com.krielwus.webtracinganalysis.repository.TracingEventRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.annotation.Value;
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 import java.util.*;
 import java.time.LocalDate;
@@ -23,13 +32,114 @@ import java.time.format.DateTimeFormatter;
 public class TracingService {
     private final TracingEventRepository tracingEventRepository;
     private final BaseInfoRecordRepository baseInfoRecordRepository;
+    private final PlatformTransactionManager transactionManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final DateTimeFormatter DF = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    @Value("${tracing.ingest.queue.maxSize:20000}")
+    private int queueMaxSize;
+    @Value("${tracing.ingest.batch.size:100}")
+    private int batchSize;
+    @Value("${tracing.ingest.batch.lingerMs:200}")
+    private long lingerMs;
+    @Value("${tracing.ingest.consumer.threads:2}")
+    private int consumerThreads;
+    @Value("${tracing.ingest.offerTimeoutMs:10}")
+    private long offerTimeoutMs;
+    private BlockingQueue<Map<String, Object>> ingestQueue;
+    private ExecutorService consumerPool;
 
     public TracingService(TracingEventRepository tracingEventRepository,
-                          BaseInfoRecordRepository baseInfoRecordRepository) {
+                          BaseInfoRecordRepository baseInfoRecordRepository,
+                          PlatformTransactionManager transactionManager) {
         this.tracingEventRepository = tracingEventRepository;
         this.baseInfoRecordRepository = baseInfoRecordRepository;
+        this.transactionManager = transactionManager;
+    }
+
+    @PostConstruct
+    public void initIngest() {
+        ingestQueue = new LinkedBlockingQueue<>(queueMaxSize);
+        consumerPool = Executors.newFixedThreadPool(consumerThreads);
+        for (int i = 0; i < consumerThreads; i++) {
+            consumerPool.submit(this::runConsumerLoop);
+        }
+    }
+
+    @PreDestroy
+    public void shutdownConsumers() {
+        if (consumerPool != null) {
+            consumerPool.shutdownNow();
+        }
+    }
+
+    public boolean ingestAsync(Map<String, Object> payload) {
+        if (payload == null) return true;
+        try {
+            return ingestQueue.offer(payload, offerTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    private void runConsumerLoop() {
+        java.util.ArrayList<Map<String, Object>> batch = new java.util.ArrayList<>(batchSize);
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                Map<String, Object> item = ingestQueue.poll(lingerMs, TimeUnit.MILLISECONDS);
+                if (item != null) {
+                    batch.add(item);
+                    ingestQueue.drainTo(batch, Math.max(0, batchSize - batch.size()));
+                }
+                if (!batch.isEmpty() && (batch.size() >= batchSize || item == null)) {
+                    flushBatch(batch);
+                    batch.clear();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        if (!batch.isEmpty()) flushBatch(batch);
+    }
+
+    private void flushBatch(java.util.List<Map<String, Object>> payloads) {
+        org.springframework.transaction.support.TransactionTemplate tt = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        tt.execute(status -> {
+            java.util.ArrayList<BaseInfoRecord> baseRecords = new java.util.ArrayList<>();
+            java.util.ArrayList<TracingEvent> eventRecords = new java.util.ArrayList<>();
+            for (Map<String, Object> payload : payloads) {
+                Object eventInfoObj = payload.get("eventInfo");
+                Object baseInfoObj = payload.get("baseInfo");
+                Map<String, Object> base = null;
+                if (baseInfoObj != null) {
+                    base = toMap(baseInfoObj);
+                    BaseInfoRecord record = new BaseInfoRecord();
+                    record.setPayload(toJson(baseInfoObj));
+                    baseRecords.add(record);
+                }
+                if (eventInfoObj != null) {
+                    java.util.List<Map<String, Object>> events = toList(eventInfoObj);
+                    for (Map<String, Object> e : events) {
+                        TracingEvent te = new TracingEvent();
+                        Object type = e.get("eventType");
+                        te.setEventType(type == null ? "UNKNOWN" : String.valueOf(type));
+                        te.setPayload(toJson(e));
+                        String appCode = base != null ? getString(base, "appCode", "APP_CODE") : getString(e, "appCode", "APP_CODE");
+                        String appName = base != null ? getString(base, "appName", "APP_NAME") : getString(e, "appName", "APP_NAME");
+                        String sessionId = getString(e, "sessionId", "SESSION_ID");
+                        if (sessionId == null || sessionId.isEmpty()) {
+                            sessionId = base != null ? getString(base, "sessionId", "SESSION_ID") : null;
+                        }
+                        te.setAppCode(appCode);
+                        te.setAppName(appName);
+                        te.setSessionId(sessionId);
+                        eventRecords.add(te);
+                    }
+                }
+            }
+            if (!baseRecords.isEmpty()) baseInfoRecordRepository.saveAll(baseRecords);
+            if (!eventRecords.isEmpty()) tracingEventRepository.saveAll(eventRecords);
+            return null;
+        });
     }
 
     /**
@@ -49,6 +159,7 @@ public class TracingService {
         }
         if (eventInfoObj != null) {
             List<Map<String, Object>> events = toList(eventInfoObj);
+            List<TracingEvent> batch = new ArrayList<>(events.size());
             for (Map<String, Object> e : events) {
                 TracingEvent te = new TracingEvent();
                 Object type = e.get("eventType");
@@ -63,8 +174,9 @@ public class TracingService {
                 te.setAppCode(appCode);
                 te.setAppName(appName);
                 te.setSessionId(sessionId);
-                tracingEventRepository.save(te);
+                batch.add(te);
             }
+            if (!batch.isEmpty()) tracingEventRepository.saveAll(batch);
         }
     }
 

@@ -9,7 +9,9 @@ import java.util.Date;
  * 供查询最新基线或比对不同批次的环境差异。
  */
 @Entity
-@Table(name = "base_info_record")
+@Table(name = "base_info_record", indexes = {
+        @Index(name = "idx_base_created_at", columnList = "created_at")
+})
 public class BaseInfoRecord {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

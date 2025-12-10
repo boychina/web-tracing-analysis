@@ -10,7 +10,7 @@
 - SPRINGBOOT ： 2.1.11.RELEASE
 
 ### 系统体验
-git下载项目，使用maven构建项目，然后使用idea打开项目，运行项目，[本地运行访问地址](http://127.0.0.1:17001/) http://127.0.0.1:17002/
+git下载项目，使用maven构建项目，然后使用idea打开项目，运行项目，[本地运行访问地址](http://127.0.0.1:17001/) http://127.0.0.1:17001/
 
 | 账号    | 密码 |
 |-------| ------- |
@@ -22,6 +22,22 @@ git下载项目，使用maven构建项目，然后使用idea打开项目，运�
 <img src="src/main/doc/1722353211528.jpg">
 <img src="src/main/doc/1722352544969.jpg">
 
+### 压力测试
+
+使用服务端压测端点 `/stressRun` 进行并发压测，结果如下：
+
+| 指标 | 数值 |
+| ---- | ---- |
+| 并发用户数 | 100 |
+| 循环次数 | 5000 |
+| 成功数 | 4603 |
+| 失败数 | 397 |
+| 总耗时(ms) | 6071 |
+| QPS | 758.19 |
+| p50 响应时间(ms) | 90 |
+| p90 响应时间(ms) | 181 |
+| p99 响应时间(ms) | 252 |
+
 ## 许可证
 
 本项目采用Apache License 2.0许可。详情参见[LICENSE](LICENSE)文件。
@@ -31,7 +47,5 @@ git下载项目，使用maven构建项目，然后使用idea打开项目，运�
 - [web-tracing](https://github.com/M-cheng-web/web-tracing) 为前端项目提供【 埋点、行为、性能、异常、请求、资源、路由、曝光、录屏 】监控手段。web-tracing文档地址：https://m-cheng-web.github.io/web-tracing/
 - [Pear Admin Layui](https://gitee.com/pear-admin/pear-admin-layui) Pear Admin 是一款开箱即用的前端开发模板，提供便捷快速的开发方式，延续 Admin 的设计规范。Pear Admin Layui文档地址：http://www.pearadmin.com/doc/
 - [hutool](https://gitee.com/dromara/hutool) 优秀的，开源的，小而全的Java工具类库，使Java拥有函数式语言般的优雅，让Java语言也可以“甜甜的”。
-- [JetBrains Open Source](https://www.jetbrains.com/zh-cn/opensource/?from=archery) 为项目提供免费的 IDE 授权  
-  [<img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.png" width="200"/>](https://www.jetbrains.com/opensource/)
-
+- [JetBrains Open Source](https://www.jetbrains.com/zh-cn/opensource/?from=archery) 为项目提
 ---

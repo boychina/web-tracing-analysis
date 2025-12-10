@@ -1,6 +1,9 @@
 server:
   port: ${SERVER_PORT:17001}
   max-http-request-header-size: 20480
+  tomcat:
+    max-threads: 400
+    accept-count: 100
   servlet:
     encoding:
       charset: UTF-8
@@ -24,6 +27,12 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
     initialization-mode: always
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      idle-timeout: 30000
+      connection-timeout: 30000
+      pool-name: WebTracingHikari
   jpa:
     hibernate:
       ddl-auto: update
@@ -31,6 +40,20 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+tracing:
+  ingest:
+    queue:
+      maxSize: 20000
+    batch:
+      size: 100
+      lingerMs: 200
+    consumer:
+      threads: 2
+    offerTimeoutMs: 10
 #  application:
 #    name: druid-jdbc-yasdb
 #  mvc.async.request-timeout: 20000
