@@ -1,0 +1,38 @@
+version: "3.8"
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: webtracing-mysql
+    command: ["--default-authentication-plugin=mysql_native_password", "--max_connections=200"]
+    environment:
+      MYSQL_DATABASE: web_tracing
+      MYSQL_ROOT_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-CHANGE_ME}
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${SPRING_DATASOURCE_PASSWORD:-CHANGE_ME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: web-tracing-analysis:latest
+    container_name: webtracing-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: ${SERVER_PORT:-17001}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/web_tracing?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC&rewriteBatchedStatements=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-CHANGE_ME}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      JAVA_TOOL_OPTIONS: -Xms64m -Xmx256m -Xss256k -XX:+UseSerialGC -XX:-UsePerfData
+    ports:
+      - "17001:17001"
+
+volumes:
+  mysql_data:

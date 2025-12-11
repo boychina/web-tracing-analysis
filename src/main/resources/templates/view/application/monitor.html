@@ -225,7 +225,7 @@
           <div class="layui-card">
             <div class="layui-card-header">本周访问趋势图</div>
             <div class="layui-card-body">
-              <div id="chart" style="height: 360px"></div>
+              <div id="weeklyChart" style="height: 360px"></div>
             </div>
           </div>
         </div>
@@ -235,7 +235,7 @@
           <div class="layui-card">
             <div class="layui-card-header">本周各页面 PV</div>
             <div class="layui-card-body">
-              <div id="pageChart" style="height: 360px"></div>
+              <div id="weeklyPageChart" style="height: 360px"></div>
             </div>
           </div>
         </div>
@@ -250,7 +250,7 @@
             count = layui.count,
             form = layui.form,
             $ = layui.jquery;
-          var chart = echarts.init(document.getElementById("chart"), "walden");
+          var chart = echarts.init(document.getElementById("weeklyChart"), "walden");
           var option = {
             tooltip: { trigger: "axis" },
             xAxis: { type: "category", data: [] },
@@ -450,7 +450,7 @@
                     return it.PV_NUM;
                   });
                   var pchart = echarts.init(
-                    document.getElementById("pageChart"),
+                    document.getElementById("weeklyPageChart"),
                     "walden"
                   );
                   pchart.setOption({

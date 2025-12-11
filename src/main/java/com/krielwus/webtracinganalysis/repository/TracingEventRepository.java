@@ -2,6 +2,8 @@ package com.krielwus.webtracinganalysis.repository;
 
 import com.krielwus.webtracinganalysis.entity.TracingEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Date;
@@ -17,4 +19,27 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
     List<TracingEvent> findByEventTypeOrderByCreatedAtDesc(String eventType);
     /** 查询时间范围内的事件 */
     List<TracingEvent> findByCreatedAtBetween(Date start, Date end);
+
+    /** 过滤事件类型与应用，并按时间范围查询 */
+    List<TracingEvent> findByEventTypeAndAppCodeAndCreatedAtBetween(String eventType, String appCode, Date start, Date end);
+
+    /** 统计事件类型与应用在时间范围内的数量 */
+    long countByEventTypeAndAppCodeAndCreatedAtBetween(String eventType, String appCode, Date start, Date end);
+
+    /** 统计事件类型与应用的总数量 */
+    long countByEventTypeAndAppCode(String eventType, String appCode);
+
+    /** 按事件类型统计总数量 */
+    long countByEventType(String eventType);
+
+    /**
+     * 统计日期范围内每日按应用的 PV 数。
+     * 返回 [day(yyyy-MM-dd), app_code, pv_count]
+     */
+    @Query(value = "SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day, app_code AS code, COUNT(*) AS pv\n"
+            + "FROM trace_event\n"
+            + "WHERE event_type = 'PV' AND created_at BETWEEN :start AND :end\n"
+            + "GROUP BY day, code\n"
+            + "ORDER BY day ASC", nativeQuery = true)
+    java.util.List<Object[]> countDailyPvByApp(@Param("start") Date start, @Param("end") Date end);
 }

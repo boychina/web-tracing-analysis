@@ -23,6 +23,7 @@ public class ApplicationInfo {
     private String appDesc;
 
     @Lob
+    @Basic(fetch = FetchType.LAZY)
     @Column(name = "app_managers", columnDefinition = "LONGTEXT")
     private String appManagers;
 

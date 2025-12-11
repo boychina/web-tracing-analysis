@@ -69,7 +69,7 @@
                       />
                     </div>
                   </div>
-                  <div class="tab-log-verification">
+                  <!-- <div class="tab-log-verification">
                     <div class="verification-text">
                       <div class="layui-input-wrap">
                         <div class="layui-input-prefix">
@@ -93,7 +93,7 @@
                       class="verification-img"
                       onclick="refreshCode()"
                     />
-                  </div>
+                  </div> -->
                   <div class="layui-form-item">
                     <div class="remember-passsword">
                       <div class="remember-cehcked">
@@ -196,28 +196,28 @@
         // 登 录 提 交
         form.on("submit(login)", function (options) {
           /// 验证验证码
-          fetch("./captcha/checkCode?inputCaptcha=" + options.field.verifyCode)
-            .then((response) => {
-              if (response.ok) {
-                return response.json();
-              }
-              throw new Error("Network response was not ok.");
-            })
-            .then((data) => {
-              // 处理获取到的JSON数据
-              console.log(data);
-              if (!data) {
-                toast.error({
-                  message: "验证码错误",
-                });
-                return false;
-              }
-            })
-            .catch((error) => {
-              // 处理错误
-              refreshCode();
-              return false;
-            });
+          // fetch("./captcha/checkCode?inputCaptcha=" + options.field.verifyCode)
+          //   .then((response) => {
+          //     if (response.ok) {
+          //       return response.json();
+          //     }
+          //     throw new Error("Network response was not ok.");
+          //   })
+          //   .then((data) => {
+          //     // 处理获取到的JSON数据
+          //     console.log(data);
+          //     if (!data) {
+          //       toast.error({
+          //         message: "验证码错误",
+          //       });
+          //       return false;
+          //     }
+          //   })
+          //   .catch((error) => {
+          //     // 处理错误
+          //     refreshCode();
+          //     return false;
+          //   });
 
           /// 登录
           const requestOptions = {

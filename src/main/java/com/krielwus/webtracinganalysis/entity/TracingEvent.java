@@ -37,6 +37,7 @@ public class TracingEvent {
 
     /** 事件原始 JSON 载荷，保留完整结构用于分析 */
     @Lob
+    @Basic(fetch = FetchType.LAZY)
     @Column(name = "payload", columnDefinition = "LONGTEXT")
     private String payload;
 

@@ -38,6 +38,49 @@ git下载项目，使用maven构建项目，然后使用idea打开项目，运�
 | p90 响应时间(ms) | 181 |
 | p99 响应时间(ms) | 252 |
 
+### 容器化部署
+
+- 构建镜像
+  - `docker build -t web-tracing-analysis:latest .`
+
+- 运行容器（示例：映射端口与数据库环境变量）
+  - `docker run -d --name web-tracing-analysis -p 17001:17001 \
+    -e SPRING_DATASOURCE_URL="jdbc:mysql://<db_host>:3306/<db_name>?useSSL=false&serverTimezone=UTC" \
+    -e SPRING_DATASOURCE_USERNAME="<db_user>" \
+    -e SPRING_DATASOURCE_PASSWORD="<db_pass>" \
+    -e SPRING_DATASOURCE_DRIVER_CLASS_NAME="com.mysql.cj.jdbc.Driver" \
+    -e SERVER_PORT=17001 \
+    web-tracing-analysis:latest`
+  - macOS 连接宿主机数据库请使用 `host.docker.internal`：
+    - `SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/<db_name>?useSSL=false&serverTimezone=UTC`
+
+- 使用 `.env` 文件（可选）
+  - 将数据库配置写入 `.env`，然后：
+  - `docker run -d --name web-tracing-analysis --env-file .env -p 17001:17001 web-tracing-analysis:latest`
+
+- 访问应用
+  - `http://127.0.0.1:17001/`
+
+- 运行时可调配置（示例）
+  - `-e TRACING_INGEST_CONSUMER_THREADS=4` 增加异步消费者线程
+  - `-e TRACING_INGEST_BATCH_SIZE=200` 调整批量入库大小
+  - `-e SPRING_DATASOURCE_URL="...&rewriteBatchedStatements=true"` 提升 JDBC 批处理效率（MySQL）
+
+#### 使用 Docker Compose 一键部署（推荐）
+
+- 预先构建运行镜像（已在本地完成 WAR 编译）：
+  - `docker build -f Dockerfile.runtime -t web-tracing-analysis:latest .`
+- 启动 MySQL 与应用：
+  - `docker compose up -d`
+- 配置说明：
+  - `docker-compose.yml` 中应用默认连接 `mysql` 服务（服务名），数据库为 `web_tracing`
+  - 默认数据库 root 密码取自环境 `SPRING_DATASOURCE_PASSWORD`（未设置时为 `CHANGE_ME`）
+  - 如需修改端口或参数，调整 `docker-compose.yml` 的 `ports` 与 `environment`
+- 验证：
+  - `docker compose ps` 查看服务状态
+  - `docker logs -f webtracing-app` 查看应用日志
+  - 浏览器访问 `http://127.0.0.1:17001/`
+
 ## 许可证
 
 本项目采用Apache License 2.0许可。详情参见[LICENSE](LICENSE)文件。

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.krielwus.webtracinganalysis.entity.BaseInfoRecord;
 import com.krielwus.webtracinganalysis.entity.TracingEvent;
 import com.krielwus.webtracinganalysis.repository.BaseInfoRecordRepository;
+import com.krielwus.webtracinganalysis.repository.ApplicationInfoRepository;
 import com.krielwus.webtracinganalysis.repository.TracingEventRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,7 @@ import java.time.format.DateTimeFormatter;
 public class TracingService {
     private final TracingEventRepository tracingEventRepository;
     private final BaseInfoRecordRepository baseInfoRecordRepository;
+    private final ApplicationInfoRepository applicationInfoRepository;
     private final PlatformTransactionManager transactionManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final DateTimeFormatter DF = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -50,9 +52,11 @@ public class TracingService {
 
     public TracingService(TracingEventRepository tracingEventRepository,
                           BaseInfoRecordRepository baseInfoRecordRepository,
+                          ApplicationInfoRepository applicationInfoRepository,
                           PlatformTransactionManager transactionManager) {
         this.tracingEventRepository = tracingEventRepository;
         this.baseInfoRecordRepository = baseInfoRecordRepository;
+        this.applicationInfoRepository = applicationInfoRepository;
         this.transactionManager = transactionManager;
     }
 
@@ -252,23 +256,13 @@ public class TracingService {
      * 统计所有数据的累计指标（基于 trace_event）。
      */
     public Map<String, Object> aggregateAllBase() {
-        List<TracingEvent> events = tracingEventRepository.findAll();
         Set<String> apps = distinctAppCodesAll();
         Set<String> users = distinctSdkUserUuidsAll();
         Set<String> devices = distinctDeviceIdsAll();
         Set<String> sessions = distinctSessionIdsAll();
-        int pv = 0;
-        int click = 0;
-        int error = 0;
-        for (TracingEvent e : events) {
-            Map<String, Object> m = parsePayload(e);
-            String type = getString(m, "eventType", "EVENT_TYPE");
-            if (type != null) {
-                if ("CLICK".equalsIgnoreCase(type)) click++;
-                if ("ERROR".equalsIgnoreCase(type)) error++;
-            }
-            if (isPV(m, type)) pv++;
-        }
+        int pv = (int) tracingEventRepository.countByEventType("PV");
+        int click = (int) tracingEventRepository.countByEventType("CLICK");
+        int error = (int) tracingEventRepository.countByEventType("ERROR");
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("APPLICATION_NUM", apps.size());
         item.put("USER_COUNT", users.size());
@@ -314,82 +308,34 @@ public class TracingService {
      * 按应用（appCode）统计日期范围内每日 PV 数，并返回 appCode 与 appName。
      */
     public List<Map<String, Object>> aggregateDailyPVByApp(LocalDate startDate, LocalDate endDate) {
-        List<Map<String, Object>> out = new ArrayList<>();
-        // 先收集整个日期范围内出现过的应用集合及名称映射（基线 + 事件结构化）
         Date rangeStart = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date rangeEnd = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
-        List<BaseInfoRecord> baseInfosAll = baseInfoRecordRepository.findByCreatedAtBetween(rangeStart, rangeEnd);
+        java.util.List<Object[]> rows = tracingEventRepository.countDailyPvByApp(rangeStart, rangeEnd);
+        Map<String, String> nameByCode = new HashMap<>();
+        for (com.krielwus.webtracinganalysis.entity.ApplicationInfo ai : applicationInfoRepository.findAll()) {
+            if (ai.getAppCode() != null && !ai.getAppCode().isEmpty()) {
+                nameByCode.put(ai.getAppCode(), ai.getAppName() == null ? ai.getAppCode() : ai.getAppName());
+            }
+        }
         Set<String> allCodes = new HashSet<>();
-        Map<String, String> nameByCodeGlobal = new HashMap<>();
-        for (BaseInfoRecord r : baseInfosAll) {
-            Map<String, Object> bm = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
-            String appCode = getString(bm, "appCode", "APP_CODE");
-            String appName = getString(bm, "appName", "APP_NAME");
-            if (appCode != null && !appCode.isEmpty()) {
-                allCodes.add(appCode);
-                if (appName != null && !appName.isEmpty()) {
-                    nameByCodeGlobal.put(appCode, appName);
-                } else {
-                    nameByCodeGlobal.putIfAbsent(appCode, appCode);
-                }
-            }
+        Map<String, Map<String, Integer>> pv = new HashMap<>();
+        for (Object[] r : rows) {
+            String day = String.valueOf(r[0]);
+            String code = String.valueOf(r[1]);
+            int cnt = ((Number) r[2]).intValue();
+            allCodes.add(code);
+            pv.computeIfAbsent(day, k -> new HashMap<>()).put(code, cnt);
         }
-        List<TracingEvent> eventsAll = tracingEventRepository.findByCreatedAtBetween(rangeStart, rangeEnd);
-        for (TracingEvent e : eventsAll) {
-            String code = e.getAppCode();
-            String name = e.getAppName();
-            if (code != null && !code.isEmpty()) {
-                allCodes.add(code);
-                if (name != null && !name.isEmpty()) {
-                    nameByCodeGlobal.put(code, name);
-                } else {
-                    nameByCodeGlobal.putIfAbsent(code, code);
-                }
-            }
-        }
-
+        List<Map<String, Object>> out = new ArrayList<>();
         for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
-            Date start = Date.from(d.atStartOfDay(ZoneId.systemDefault()).toInstant());
-            Date end = Date.from(d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
-            // 当天事件与基线记录
-            List<TracingEvent> events = tracingEventRepository.findByCreatedAtBetween(start, end);
-            List<BaseInfoRecord> baseInfosDay = baseInfoRecordRepository.findByCreatedAtBetween(start, end);
-            // 当天 sessionId -> appCode 映射（优先当天）
-            Map<String, String> codeBySession = new HashMap<>();
-            for (BaseInfoRecord r : baseInfosDay) {
-                Map<String, Object> bm = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
-                String sessionId = getString(bm, "sessionId", "SESSION_ID");
-                String appCode = getString(bm, "appCode", "APP_CODE");
-                if (sessionId != null && !sessionId.isEmpty() && appCode != null && !appCode.isEmpty()) {
-                    codeBySession.put(sessionId, appCode);
-                }
-            }
-            // 统计 PV 按应用聚合（优先事件结构化列，其次当天 session 映射，最后事件 payload）
-            Map<String, Integer> pvByApp = new HashMap<>();
-            for (TracingEvent e : events) {
-                Map<String, Object> m = parsePayload(e);
-                String type = e.getEventType() != null ? e.getEventType() : getString(m, "eventType", "EVENT_TYPE");
-                if (!isPV(m, type)) continue;
-                String appCode = e.getAppCode();
-                if (appCode == null || appCode.isEmpty()) {
-                    String sessionId = e.getSessionId() != null ? e.getSessionId() : getString(m, "sessionId", "SESSION_ID");
-                    if (sessionId != null && !sessionId.isEmpty()) {
-                        appCode = codeBySession.get(sessionId);
-                    }
-                }
-                if (appCode == null || appCode.isEmpty()) {
-                    appCode = getString(m, "appCode", "APP_CODE");
-                }
-                if (appCode == null || appCode.isEmpty()) continue;
-                pvByApp.put(appCode, pvByApp.getOrDefault(appCode, 0) + 1);
-            }
-            // 输出当日每个应用的 PV 行（缺失应用填 0）
+            String day = DF.format(d);
+            Map<String, Integer> byCode = pv.getOrDefault(day, Collections.emptyMap());
             for (String code : allCodes) {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("APP_CODE", code);
-                row.put("APP_NAME", nameByCodeGlobal.getOrDefault(code, code));
-                row.put("DATETIME", DF.format(d));
-                row.put("PV_NUM", pvByApp.getOrDefault(code, 0));
+                row.put("APP_NAME", nameByCode.getOrDefault(code, code));
+                row.put("DATETIME", day);
+                row.put("PV_NUM", byCode.getOrDefault(code, 0));
                 out.add(row);
             }
         }
@@ -408,22 +354,9 @@ public class TracingService {
             devices = distinctDeviceIdsRangeByAppEvents(start, end, appCode);
             sessions = distinctSessionIdsRangeByAppEvents(start, end, appCode);
         }
-        int pv = 0;
-        int click = 0;
-        int error = 0;
-        for (TracingEvent e : events) {
-            if (appCode != null && appCode.length() > 0) {
-                String code = e.getAppCode();
-                if (code == null || !code.equals(appCode)) continue;
-            }
-            Map<String, Object> m = parsePayload(e);
-            String type = e.getEventType() != null ? e.getEventType() : getString(m, "eventType", "EVENT_TYPE");
-            if (type != null) {
-                if ("CLICK".equalsIgnoreCase(type)) click++;
-                if ("ERROR".equalsIgnoreCase(type)) error++;
-            }
-            if (isPV(m, type)) pv++;
-        }
+        int pv = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("PV", appCode, start, end);
+        int click = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("CLICK", appCode, start, end);
+        int error = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("ERROR", appCode, start, end);
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("DAY_TIME", DF.format(date));
         item.put("USER_COUNT", users.size());
@@ -436,26 +369,12 @@ public class TracingService {
     }
 
     public Map<String, Object> aggregateAllBaseByApp(String appCode) {
-        List<TracingEvent> events = tracingEventRepository.findAll();
         Set<String> users = distinctSdkUserUuidsAllByApp(appCode);
         Set<String> devices = distinctDeviceIdsAllByApp(appCode);
         Set<String> sessions = distinctSessionIdsAllByApp(appCode);
-        int pv = 0;
-        int click = 0;
-        int error = 0;
-        for (TracingEvent e : events) {
-            if (appCode != null && appCode.length() > 0) {
-                String code = e.getAppCode();
-                if (code == null || !code.equals(appCode)) continue;
-            }
-            Map<String, Object> m = parsePayload(e);
-            String type = e.getEventType() != null ? e.getEventType() : getString(m, "eventType", "EVENT_TYPE");
-            if (type != null) {
-                if ("CLICK".equalsIgnoreCase(type)) click++;
-                if ("ERROR".equalsIgnoreCase(type)) error++;
-            }
-            if (isPV(m, type)) pv++;
-        }
+        int pv = (int) tracingEventRepository.countByEventTypeAndAppCode("PV", appCode);
+        int click = (int) tracingEventRepository.countByEventTypeAndAppCode("CLICK", appCode);
+        int error = (int) tracingEventRepository.countByEventTypeAndAppCode("ERROR", appCode);
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("APPLICATION_NUM", 1);
         item.put("USER_COUNT", users.size());
@@ -472,17 +391,7 @@ public class TracingService {
         for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
             Date start = Date.from(d.atStartOfDay(ZoneId.systemDefault()).toInstant());
             Date end = Date.from(d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
-            List<TracingEvent> events = tracingEventRepository.findByCreatedAtBetween(start, end);
-            int pv = 0;
-            for (TracingEvent e : events) {
-                if (appCode != null && appCode.length() > 0) {
-                    String code = e.getAppCode();
-                    if (code == null || !code.equals(appCode)) continue;
-                }
-                Map<String, Object> m = parsePayload(e);
-                String type = e.getEventType() != null ? e.getEventType() : getString(m, "eventType", "EVENT_TYPE");
-                if (isPV(m, type)) pv++;
-            }
+            int pv = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("PV", appCode, start, end);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("APP_CODE", appCode);
             row.put("DATETIME", DF.format(d));
@@ -495,16 +404,10 @@ public class TracingService {
     public List<Map<String, Object>> aggregatePagePVForApp(LocalDate startDate, LocalDate endDate, String appCode) {
         Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
-        List<TracingEvent> events = tracingEventRepository.findByCreatedAtBetween(start, end);
+        List<TracingEvent> events = tracingEventRepository.findByEventTypeAndAppCodeAndCreatedAtBetween("PV", appCode, start, end);
         Map<String, Integer> pvByPage = new HashMap<>();
         for (TracingEvent e : events) {
-            if (appCode != null && appCode.length() > 0) {
-                String code = e.getAppCode();
-                if (code == null || !code.equals(appCode)) continue;
-            }
             Map<String, Object> m = parsePayload(e);
-            String type = e.getEventType() != null ? e.getEventType() : getString(m, "eventType", "EVENT_TYPE");
-            if (!isPV(m, type)) continue;
             String url = getString(m, "triggerPageUrl", "pageUrl", "URL", "PAGE_URL");
             if (url == null || url.isEmpty()) continue;
             pvByPage.put(url, pvByPage.getOrDefault(url, 0) + 1);

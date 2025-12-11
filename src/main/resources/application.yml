@@ -28,7 +28,7 @@ spring:
     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
     initialization-mode: always
     hikari:
-      maximum-pool-size: 50
+      maximum-pool-size: 20
       minimum-idle: 10
       idle-timeout: 30000
       connection-timeout: 30000
@@ -42,6 +42,7 @@ spring:
         dialect: org.hibernate.dialect.MySQL8Dialect
         jdbc:
           batch_size: 50
+          fetch_size: 500
         order_inserts: true
         order_updates: true
 tracing:

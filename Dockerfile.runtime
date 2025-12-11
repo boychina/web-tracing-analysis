@@ -1,0 +1,8 @@
+FROM eclipse-temurin:8-jre
+WORKDIR /app
+COPY target/web-tracing-analysis.war ./web-tracing-analysis.war
+ENV SERVER_PORT=17001
+# Conservative JVM defaults for constrained environments
+ENV JAVA_TOOL_OPTIONS="-Xms64m -Xmx256m -Xss256k -XX:+UseSerialGC -XX:-UsePerfData"
+EXPOSE 17001
+ENTRYPOINT ["java","-jar","web-tracing-analysis.war"]
