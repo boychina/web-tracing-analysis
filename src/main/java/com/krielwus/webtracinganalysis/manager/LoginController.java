@@ -34,32 +34,32 @@ public class LoginController {
     public ResultInfo login(@RequestBody JSONObject jsonObject, HttpSession session) {
         String username = String.valueOf(jsonObject.getOrDefault("username", "")).trim();
         String password = String.valueOf(jsonObject.getOrDefault("password", "")).trim();
-        String verifyCode = String.valueOf(jsonObject.getOrDefault("verifyCode", "")).trim();
-        if (username.isEmpty() || password.isEmpty() || verifyCode.isEmpty()) {
+        // String verifyCode = String.valueOf(jsonObject.getOrDefault("verifyCode", "")).trim();
+        // if (username.isEmpty() || password.isEmpty() || verifyCode.isEmpty()) {
+        //     return new ResultInfo(400, "参数不完整");
+        // }
+        if (username.isEmpty() || password.isEmpty()) {
             return new ResultInfo(400, "参数不完整");
         }
 
-        String captcha = (String) session.getAttribute("captcha");
-        if (captcha == null || ""==captcha){
-            return new ResultInfo(400, "验证码已过期");
-        }
-        if (captcha != null && captcha.equalsIgnoreCase(verifyCode)) {
-            boolean ok = userService.authenticate(username, password);
-            if (ok) {
-                UserAccount user = userService.findByUsername(username);
-                if (user != null) {
-                    session.setAttribute("user", user);
-                    session.setAttribute("username", user.getUsername());
-                    session.setAttribute("role", user.getRole());
-                } else {
-                    session.setAttribute("username", username);
-                }
-                return new ResultInfo(200, "登录成功", "","./index.html");
+        // String captcha = (String) session.getAttribute("captcha");
+        // if (captcha == null || ""==captcha){
+        //     return new ResultInfo(400, "验证码已过期");
+        // }
+        // if (captcha != null && captcha.equalsIgnoreCase(verifyCode)) {
+        boolean ok = userService.authenticate(username, password);
+        if (ok) {
+            UserAccount user = userService.findByUsername(username);
+            if (user != null) {
+                session.setAttribute("user", user);
+                session.setAttribute("username", user.getUsername());
+                session.setAttribute("role", user.getRole());
             } else {
-                return new ResultInfo(400, "用户名或密码错误");
+                session.setAttribute("username", username);
             }
+            return new ResultInfo(200, "登录成功", "","./index.html");
         } else {
-            return new ResultInfo(400, "验证码错误");
+            return new ResultInfo(400, "用户名或密码错误");
         }
     }
 

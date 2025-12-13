@@ -81,6 +81,16 @@ git下载项目，使用maven构建项目，然后使用idea打开项目，运�
   - `docker logs -f webtracing-app` 查看应用日志
   - 浏览器访问 `http://127.0.0.1:17001/`
 
+#### 使用 Tomcat 部署
+
+如果你希望在 Tomcat 服务器上运行应用，我们提供了专用的 Dockerfile：
+
+- 构建 Tomcat 镜像：
+  - `docker build -f Dockerfile.tomcat -t web-tracing-analysis:tomcat .`
+- 运行应用：
+  - `docker run -d -p 17001:17001 --name webtracing-tomcat web-tracing-analysis:tomcat`
+- 你也可以使用环境变量配置数据库连接：
+  - `docker run -d -p 17001:17001 -e SPRING_DATASOURCE_URL=jdbc:mysql://your-db-host:3306/web_tracing -e SPRING_DATASOURCE_USERNAME=user -e SPRING_DATASOURCE_PASSWORD=password web-tracing-analysis:tomcat`
 ## 许可证
 
 本项目采用Apache License 2.0许可。详情参见[LICENSE](LICENSE)文件。
