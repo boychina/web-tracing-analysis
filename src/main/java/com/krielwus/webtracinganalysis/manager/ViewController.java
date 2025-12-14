@@ -23,8 +23,6 @@ public class ViewController {
         return "/view/console/index";
     }
 
-
-
     /** 监控分析页 */
     @RequestMapping("/analysis/index.html")
     public String toAnalysis() {

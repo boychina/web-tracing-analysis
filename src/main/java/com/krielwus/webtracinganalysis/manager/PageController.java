@@ -36,11 +36,11 @@ public class PageController {
         return "login";
     }
 
-    //进入登录页
-//    @GetMapping("/login")
-//    public String toLogin() {
-//        return "login.html";
-//    }
+    // 进入登录页
+    // @GetMapping("/login")
+    // public String toLogin() {
+    //     return "login.html";
+    // }
 
     /** 首页模板 */
     @RequestMapping("/index.html")
