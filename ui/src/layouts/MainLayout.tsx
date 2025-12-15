@@ -9,7 +9,7 @@ type RawMenuItem = {
   title: string;
   icon?: string;
   type: number;
-  href?: string;
+  path?: string;
   children?: RawMenuItem[];
 };
 
@@ -21,16 +21,22 @@ type UserInfo = {
   role: string;
 };
 
-function mapHrefToPath(href?: string) {
-  if (!href) return "/";
-  if (href.includes("view/analysis/index.html")) return "/analysis";
-  if (href.includes("view/application/monitor.html")) return "/application/monitor";
-  if (href.includes("view/application/index.html")) return "/application";
-  if (href.includes("view/user/index.html")) return "/user";
-  if (href.includes("view/analysis/userTrack.html")) return "/analysis/userTrack";
-  if (href.includes("view/listing/table.html")) return "/listing/table";
-  return "/";
-}
+const STATIC_MENU: RawMenuItem[] = [
+  {
+    icon: "layui-icon layui-icon-console",
+    id: "10",
+    title: "分析页",
+    type: 1,
+    path: "/analysis",
+  },
+  {
+    icon: "layui-icon layui-icon-console",
+    id: "12",
+    title: "应用监控",
+    type: 1,
+    path: "/application/monitor",
+  },
+];
 
 function buildMenuItems(data: RawMenuItem[]): MenuItem[] {
   return data.map((item) => {
@@ -39,18 +45,17 @@ function buildMenuItems(data: RawMenuItem[]): MenuItem[] {
         key: String(item.id),
         label: item.title,
         children: (item.children || []).map((c) => {
-          const path = mapHrefToPath(c.href);
           return {
-            key: path,
-            label: <Link to={path}>{c.title}</Link>
+            key: c.path || "",
+            label: <Link to={c.path || ""}>{c.title}</Link>,
           };
-        })
+        }),
       };
     }
-    const path = mapHrefToPath(item.href);
+    const path = item.path || "";
     return {
       key: path,
-      label: <Link to={path}>{item.title}</Link>
+      label: <Link to={path}>{item.title}</Link>,
     };
   });
 }
@@ -73,18 +78,7 @@ function MainLayout() {
           return;
         }
         setUser(meResp.data.data as UserInfo);
-        const menuResp = await client.get("/getMenuList");
-        if (!active) return;
-        if (menuResp.data && menuResp.data.code === 200) {
-          const rawList = menuResp.data.data as RawMenuItem[];
-          setMenuItems(buildMenuItems(rawList));
-        } else if (Array.isArray(menuResp.data)) {
-          const rawList = menuResp.data as RawMenuItem[];
-          setMenuItems(buildMenuItems(rawList));
-        } else if (menuResp.data && Array.isArray(menuResp.data.data)) {
-          const rawList = menuResp.data.data as RawMenuItem[];
-          setMenuItems(buildMenuItems(rawList));
-        }
+        setMenuItems(buildMenuItems(STATIC_MENU));
       } finally {
         if (active) setLoading(false);
       }
@@ -108,7 +102,7 @@ function MainLayout() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            height: "100vh"
+            height: "100vh",
           }}
         >
           <Spin size="large" />
@@ -132,10 +126,10 @@ function MainLayout() {
             fontSize: 18,
             fontWeight: 600,
             display: "flex",
-            alignItems: "center"
+            alignItems: "center",
           }}
         >
-          WebTracing
+          埋点监控
         </div>
         <Menu
           mode="inline"
@@ -151,7 +145,7 @@ function MainLayout() {
             padding: "0 24px",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between"
+            justifyContent: "space-between",
           }}
         >
           <div>管理控制台</div>
@@ -161,7 +155,7 @@ function MainLayout() {
           <div
             style={{
               height: "100%",
-              minHeight: "calc(100vh - 112px)"
+              minHeight: "calc(100vh - 112px)",
             }}
           >
             <Outlet />
@@ -173,4 +167,3 @@ function MainLayout() {
 }
 
 export default MainLayout;
-

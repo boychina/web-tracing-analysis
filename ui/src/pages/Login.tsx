@@ -1,6 +1,7 @@
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, Card, Form, Input, message } from "antd";
 import { useState } from "react";
+import client from "../api/client";
 
 type LoginFormValues = {
   username: string;
@@ -13,13 +14,8 @@ function Login() {
   const onFinish = async (values: LoginFormValues) => {
     setLoading(true);
     try {
-      const resp = await fetch("/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(values)
-      });
-      const data = await resp.json();
+      const resp = await client.post("/login", values);
+      const data = resp.data;
       if (data.code === 200) {
         message.success("登录成功");
         window.location.href = "/";
@@ -59,12 +55,7 @@ function Login() {
             />
           </Form.Item>
           <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              block
-              loading={loading}
-            >
+            <Button type="primary" htmlType="submit" block loading={loading}>
               登录
             </Button>
           </Form.Item>
