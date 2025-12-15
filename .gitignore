@@ -1,4 +1,5 @@
 /target
 /vue3
 .env
+.env.local
 */node_modules
