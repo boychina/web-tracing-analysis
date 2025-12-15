@@ -17,6 +17,7 @@ import javax.servlet.http.HttpSession;
  * 负责接收登录请求、校验验证码与用户凭证，并在成功后写入会话登录态。
  */
 @Controller
+@RequestMapping("/api")
 public class LoginController {
 
     private final UserService userService;

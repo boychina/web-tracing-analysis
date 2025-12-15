@@ -14,7 +14,7 @@ import java.util.*;
  * 当前实现为演示用的 mock 数据，后续可替换为数据库聚合结果。
  */
 @RestController
-@RequestMapping("/webTrack")
+@RequestMapping("/api/webTrack")
 public class WebTrackController {
 
     private static final DateTimeFormatter DF = DateTimeFormatter.ofPattern("yyyy-MM-dd");

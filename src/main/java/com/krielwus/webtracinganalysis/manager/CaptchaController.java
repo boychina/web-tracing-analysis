@@ -18,7 +18,7 @@ import java.io.IOException;
  * 提供验证码图片生成与验证，用于登录等业务的人机校验。
  */
 @RestController
-@RequestMapping("/captcha")
+@RequestMapping("/api/captcha")
 public class CaptchaController {
 
     @Autowired

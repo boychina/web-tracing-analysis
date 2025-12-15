@@ -3,6 +3,7 @@ package com.krielwus.webtracinganalysis.config;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -37,6 +38,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new AuthInterceptor())
                 .addPathPatterns(
+                        "/api/user/**",
+                        "/api/application/**",
+                        "/api/getAllTracingList",
+                        "/api/getBaseInfo",
+                        "/api/cleanTracingList",
                         "/user/**",
                         "/application/**",
                         "/getAllTracingList",
@@ -44,11 +50,21 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/cleanTracingList"
                 )
                 .excludePathPatterns(
+                        "/api/login",
+                        "/api/register",
+                        "/api/captcha/**",
+                        "/api/trackweb",
                         "/login",
                         "/register",
                         "/captcha/**",
                         "/trackweb"
                 );
+    }
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/assets/**")
+                .addResourceLocations("classpath:/templates/assets/");
     }
 
 }

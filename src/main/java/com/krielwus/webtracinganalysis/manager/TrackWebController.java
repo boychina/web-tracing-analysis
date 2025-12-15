@@ -1,6 +1,7 @@
 package com.krielwus.webtracinganalysis.manager;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.krielwus.webtracinganalysis.info.ResultInfo;
 import com.krielwus.webtracinganalysis.service.TracingService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,7 +38,7 @@ public class TrackWebController {
     /**
      * 事件上报（POST）：支持大批量 JSON（XHR/sendBeacon）。
      */
-    @PostMapping("/trackweb")
+    @PostMapping({ "/trackweb", "/api/trackweb" })
     public Map<String, Object> trackweb(@RequestBody(required = false) String body) {
         Map<String, Object> payload = parseBody(body);
         tracingService.ingestAsync(payload);
@@ -50,7 +51,7 @@ public class TrackWebController {
     /**
      * 事件上报（GET）：兼容图片打点，参数 v 为 JSON。
      */
-    @GetMapping("/trackweb")
+    @GetMapping({ "/trackweb", "/api/trackweb" })
     public Map<String, Object> trackwebGet(@RequestParam(value = "v", required = false) String v) {
         Map<String, Object> payload = parseBody(v);
         tracingService.ingestAsync(payload);
@@ -63,7 +64,7 @@ public class TrackWebController {
     /**
      * 查询事件列表，支持按事件类型过滤。
      */
-    @GetMapping("/getAllTracingList")
+    @GetMapping({ "/getAllTracingList", "/api/getAllTracingList" })
     public Map<String, Object> getAllTracingList(@RequestParam(value = "eventType", required = false) String eventType) {
         List<Map<String, Object>> data = tracingService.getAllTracingList(eventType);
         Map<String, Object> resp = new HashMap<>();
@@ -75,7 +76,7 @@ public class TrackWebController {
     /**
      * 查询最新一次上报的基线信息。
      */
-    @GetMapping("/getBaseInfo")
+    @GetMapping({ "/getBaseInfo", "/api/getBaseInfo" })
     public Map<String, Object> getBaseInfo() {
         Map<String, Object> baseInfo = tracingService.getBaseInfo();
         Map<String, Object> resp = new HashMap<>();
@@ -87,7 +88,7 @@ public class TrackWebController {
     /**
      * 清除所有事件与基线数据（开发调试用）。
      */
-    @PostMapping("/cleanTracingList")
+    @PostMapping({ "/cleanTracingList", "/api/cleanTracingList" })
     public Map<String, Object> cleanTracingList() {
         tracingService.cleanAll();
         Map<String, Object> resp = new HashMap<>();
@@ -96,7 +97,7 @@ public class TrackWebController {
         return resp;
     }
 
-    @PostMapping("/stressRun")
+    @PostMapping({ "/stressRun", "/api/stressRun" })
     public Map<String, Object> stressRun(@RequestBody Map<String, Object> body) {
         int total = toInt(body.get("total"), 10000);
         int concurrency = toInt(body.get("concurrency"), 100);

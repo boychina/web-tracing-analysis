@@ -15,6 +15,7 @@ import javax.servlet.http.HttpSession;
  * 为前端提供菜单配置与菜单列表，支持后续扩展鉴权逻辑。
  */
 @Controller
+@RequestMapping("/api")
 public class MenuController {
 
     /**

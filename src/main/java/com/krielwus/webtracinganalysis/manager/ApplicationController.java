@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 @RestController
-@RequestMapping("/application")
+@RequestMapping("/api/application")
 public class ApplicationController {
     private final ApplicationService service;
     private final UserAccountRepository userRepo;
