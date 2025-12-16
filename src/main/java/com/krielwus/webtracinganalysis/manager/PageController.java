@@ -9,8 +9,8 @@ public class PageController {
     @RequestMapping({
             "/",
             "/login",
-            "/{path:^(?!(api|assets)$).*$}",
-            "/{path:^(?!(api|assets)$).*$}/**"
+            "/{path:^(?!(?:api|assets)$).*$}",
+            "/{path:^(?!(?:api|assets)$).*$}/**"
     })
     public String index() {
         return "index";

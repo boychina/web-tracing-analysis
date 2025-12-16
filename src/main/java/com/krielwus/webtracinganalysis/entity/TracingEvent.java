@@ -12,7 +12,8 @@ import java.util.Date;
 @Table(name = "trace_event", indexes = {
         @Index(name = "idx_trace_event_type", columnList = "event_type"),
         @Index(name = "idx_trace_app_code", columnList = "app_code"),
-        @Index(name = "idx_trace_created_at", columnList = "created_at")
+        @Index(name = "idx_trace_created_at", columnList = "created_at"),
+        @Index(name = "idx_trace_type_code_time", columnList = "event_type, app_code, created_at")
 })
 public class TracingEvent {
     @Id

@@ -3,3 +3,5 @@
 .env
 .env.local
 */node_modules
+/src/main/resources/static_bak/
+/src/main/resources/templates_bak/

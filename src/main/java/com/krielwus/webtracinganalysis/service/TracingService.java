@@ -223,29 +223,19 @@ public class TracingService {
     public Map<String, Object> aggregateDailyBase(LocalDate date) {
         Date start = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
-        List<TracingEvent> events = tracingEventRepository.findByCreatedAtBetween(start, end);
-        Set<String> apps = distinctAppCodesRange(start, end);
-        Set<String> users = distinctSdkUserUuidsRange(start, end);
-        Set<String> devices = distinctDeviceIdsRange(start, end);
-        Set<String> sessions = distinctSessionIdsRange(start, end);
-        int pv = 0;
-        int click = 0;
-        int error = 0;
-        for (TracingEvent e : events) {
-            Map<String, Object> m = parsePayload(e);
-            String type = getString(m, "eventType", "EVENT_TYPE");
-            if (type != null) {
-                if ("CLICK".equalsIgnoreCase(type)) click++;
-                if ("ERROR".equalsIgnoreCase(type)) error++;
-            }
-            if (isPV(m, type)) pv++;
-        }
+        int appCount = (int) tracingEventRepository.countDistinctAppCodeBetween(start, end);
+        int userCount = (int) tracingEventRepository.countDistinctSdkUserUuidBetween(start, end);
+        int deviceCount = (int) tracingEventRepository.countDistinctDeviceIdBetween(start, end);
+        int sessionCount = (int) tracingEventRepository.countDistinctSessionIdBetween(start, end);
+        int pv = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetween("PV", start, end);
+        int click = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetween("CLICK", start, end);
+        int error = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetween("ERROR", start, end);
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("DAY_TIME", DF.format(date));
-        item.put("APPLICATION_NUM", apps.size());
-        item.put("USER_COUNT", users.size());
-        item.put("DEVICE_NUM", devices.size());
-        item.put("SESSION_UNM", sessions.size());
+        item.put("APPLICATION_NUM", appCount);
+        item.put("USER_COUNT", userCount);
+        item.put("DEVICE_NUM", deviceCount);
+        item.put("SESSION_UNM", sessionCount);
         item.put("CLICK_NUM", click);
         item.put("PV_NUM", pv);
         item.put("ERROR_NUM", error);
@@ -345,23 +335,17 @@ public class TracingService {
     public Map<String, Object> aggregateDailyBaseByApp(String appCode, LocalDate date) {
         Date start = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
-        List<TracingEvent> events = tracingEventRepository.findByCreatedAtBetween(start, end);
-        Set<String> users = distinctSdkUserUuidsRangeByApp(start, end, appCode);
-        Set<String> devices = distinctDeviceIdsRangeByApp(start, end, appCode);
-        Set<String> sessions = distinctSessionIdsRangeByApp(start, end, appCode);
-        if (users.isEmpty() || devices.isEmpty() || sessions.isEmpty()) {
-            users = distinctSdkUserUuidsRangeByAppEvents(start, end, appCode);
-            devices = distinctDeviceIdsRangeByAppEvents(start, end, appCode);
-            sessions = distinctSessionIdsRangeByAppEvents(start, end, appCode);
-        }
+        int userCount = (int) tracingEventRepository.countDistinctSdkUserUuidForAppBetween(appCode, start, end);
+        int deviceCount = (int) tracingEventRepository.countDistinctDeviceIdForAppBetween(appCode, start, end);
+        int sessionCount = (int) tracingEventRepository.countDistinctSessionIdForAppBetween(appCode, start, end);
         int pv = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("PV", appCode, start, end);
         int click = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("CLICK", appCode, start, end);
         int error = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("ERROR", appCode, start, end);
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("DAY_TIME", DF.format(date));
-        item.put("USER_COUNT", users.size());
-        item.put("DEVICE_NUM", devices.size());
-        item.put("SESSION_UNM", sessions.size());
+        item.put("USER_COUNT", userCount);
+        item.put("DEVICE_NUM", deviceCount);
+        item.put("SESSION_UNM", sessionCount);
         item.put("CLICK_NUM", click);
         item.put("PV_NUM", pv);
         item.put("ERROR_NUM", error);

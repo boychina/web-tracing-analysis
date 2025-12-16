@@ -32,6 +32,39 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
     /** 按事件类型统计总数量 */
     long countByEventType(String eventType);
 
+    /** 按事件类型统计在时间范围内的数量（全应用） */
+    long countByEventTypeAndCreatedAtBetween(String eventType, Date start, Date end);
+
+    /** 统计时间范围内的应用数量（按事件中的 app_code 去重） */
+    @Query(value = "SELECT COUNT(DISTINCT app_code) FROM trace_event WHERE created_at BETWEEN :start AND :end", nativeQuery = true)
+    long countDistinctAppCodeBetween(@Param("start") Date start, @Param("end") Date end);
+
+    /** 统计时间范围内的会话数量（按事件中的 session_id 去重） */
+    @Query(value = "SELECT COUNT(DISTINCT session_id) FROM trace_event WHERE created_at BETWEEN :start AND :end", nativeQuery = true)
+    long countDistinctSessionIdBetween(@Param("start") Date start, @Param("end") Date end);
+
+    /** 统计时间范围内的设备数量（从 payload 提取 deviceId 去重） */
+    @Query(value = "SELECT COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(payload, '$.deviceId'))) FROM trace_event WHERE created_at BETWEEN :start AND :end", nativeQuery = true)
+    long countDistinctDeviceIdBetween(@Param("start") Date start, @Param("end") Date end);
+
+    /** 统计时间范围内的用户数量（从 payload 提取 sdkUserUuid 去重） */
+    @Query(value = "SELECT COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(payload, '$.sdkUserUuid'))) FROM trace_event WHERE created_at BETWEEN :start AND :end", nativeQuery = true)
+    long countDistinctSdkUserUuidBetween(@Param("start") Date start, @Param("end") Date end);
+
+    /** 统计应用在时间范围内的会话数量（按事件中的 session_id 去重） */
+    @Query(value = "SELECT COUNT(DISTINCT session_id) FROM trace_event WHERE app_code = :appCode AND created_at BETWEEN :start AND :end", nativeQuery = true)
+    long countDistinctSessionIdForAppBetween(@Param("appCode") String appCode, @Param("start") Date start,
+            @Param("end") Date end);
+
+    /** 统计应用在时间范围内的设备数量（从 payload 提取 deviceId 去重） */
+    @Query(value = "SELECT COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(payload, '$.deviceId'))) FROM trace_event WHERE app_code = :appCode AND created_at BETWEEN :start AND :end", nativeQuery = true)
+    long countDistinctDeviceIdForAppBetween(@Param("appCode") String appCode, @Param("start") Date start,
+            @Param("end") Date end);
+
+    /** 统计应用在时间范围内的用户数量（从 payload 提取 sdkUserUuid 去重） */
+    @Query(value = "SELECT COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(payload, '$.sdkUserUuid'))) FROM trace_event WHERE app_code = :appCode AND created_at BETWEEN :start AND :end", nativeQuery = true)
+    long countDistinctSdkUserUuidForAppBetween(@Param("appCode") String appCode, @Param("start") Date start,
+            @Param("end") Date end);
     /**
      * 统计日期范围内每日按应用的 PV 数。
      * 返回 [day(yyyy-MM-dd), app_code, pv_count]
