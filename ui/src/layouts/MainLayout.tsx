@@ -31,10 +31,24 @@ const STATIC_MENU: RawMenuItem[] = [
   },
   {
     icon: "layui-icon layui-icon-console",
+    id: "11",
+    title: "应用管理",
+    type: 1,
+    path: "/application",
+  },
+  {
+    icon: "layui-icon layui-icon-console",
     id: "12",
     title: "应用监控",
     type: 1,
     path: "/application/monitor",
+  },
+  {
+    icon: "layui-icon layui-icon-console",
+    id: "13",
+    title: "用户管理",
+    type: 1,
+    path: "/user",
   },
 ];
 
@@ -149,7 +163,20 @@ function MainLayout() {
           }}
         >
           <div>管理控制台</div>
-          <div>{user.username}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span>{user.username}</span>
+            <a
+              onClick={async () => {
+                try {
+                  await client.post("/logout");
+                } finally {
+                  navigate("/login", { replace: true });
+                }
+              }}
+            >
+              退出登录
+            </a>
+          </div>
         </Layout.Header>
         <Layout.Content style={{ padding: 24, background: "#f5f5f5" }}>
           <div

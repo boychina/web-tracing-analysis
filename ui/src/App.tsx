@@ -2,6 +2,7 @@ import { ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import MainLayout from "./layouts/MainLayout";
 import AnalysisDashboard from "./pages/AnalysisDashboard";
 import ApplicationManagement from "./pages/ApplicationManagement";
@@ -19,6 +20,7 @@ function App() {
     <ConfigProvider locale={zhCN}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Navigate to="/analysis" replace />} />
           <Route path="analysis" element={<AnalysisDashboard />} />

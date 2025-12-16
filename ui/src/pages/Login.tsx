@@ -1,5 +1,6 @@
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, Card, Form, Input, message } from "antd";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import client from "../api/client";
 
@@ -59,6 +60,9 @@ function Login() {
               登录
             </Button>
           </Form.Item>
+          <div style={{ textAlign: "right" }}>
+            <Link to="/register">没有账号？去注册</Link>
+          </div>
         </Form>
       </Card>
     </div>

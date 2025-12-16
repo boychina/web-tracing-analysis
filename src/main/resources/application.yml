@@ -20,7 +20,7 @@ logging:
 spring:
   web:
     resources:
-      static-locations: classpath:/static/
+      static-locations: classpath:/templates/static/
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}

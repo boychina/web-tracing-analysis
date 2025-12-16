@@ -64,6 +64,16 @@ public class LoginController {
         }
     }
 
+    @PostMapping("/logout")
+    @ResponseBody
+    public ResultInfo logout(HttpSession session) {
+        try {
+            session.invalidate();
+        } catch (Exception ignore) {
+        }
+        return new ResultInfo(200, "退出成功");
+    }
+
     @PostMapping("/register")
     @ResponseBody
     public ResultInfo register(@RequestBody JSONObject jsonObject) {
