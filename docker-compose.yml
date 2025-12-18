@@ -12,12 +12,12 @@ services:
   web-tracing-analysis:
     build: .
     ports:
-      - "8080:8080"
+      - "17001:17001"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/web_tracing?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC&rewriteBatchedStatements=true&useServerPrepStmts=true&cachePrepStmts=true&useCursorFetch=true&defaultFetchSize=1000&allowPublicKeyRetrieval=true
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=123456
-      - SERVER_PORT=8080
+      - SERVER_PORT=17001
     depends_on:
       - mysql  # 确保MySQL先启动
 
