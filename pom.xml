@@ -11,7 +11,7 @@
 	<groupId>org.krielwus</groupId>
 	<artifactId>webTrackAnalysis</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<packaging>war</packaging>
+	<packaging>jar</packaging>
 	<name>web-tracing-analysis</name>
 	<description>web-tracing-analysis</description>
 	<url/>

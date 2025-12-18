@@ -1,5 +1,4 @@
 .git
-target/
 *.log
 .mvn/
 Dockerfile
