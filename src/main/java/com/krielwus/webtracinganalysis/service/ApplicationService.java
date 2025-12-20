@@ -25,6 +25,29 @@ public class ApplicationService {
 
     public List<ApplicationInfo> listAll() { return repo.findAll(); }
 
+    public List<ApplicationInfo> listByUser(String userId, String userRole) {
+        List<ApplicationInfo> allApps = repo.findAll();
+        if ("SUPER_ADMIN".equals(userRole)) {
+            return allApps;
+        }
+        
+        return allApps.stream()
+                .filter(app -> isUserManager(app, userId))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    private boolean isUserManager(ApplicationInfo app, String userId) {
+        if (userId == null || app.getAppManagers() == null) {
+            return false;
+        }
+        try {
+            java.util.List<String> managers = JSON.parseArray(app.getAppManagers(), String.class);
+            return managers != null && managers.contains(userId);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @Transactional
     public ApplicationInfo create(String appName, String appCodePrefix, String appDesc, java.util.List<String> managers, String creator) {
         validate(appName, appCodePrefix);

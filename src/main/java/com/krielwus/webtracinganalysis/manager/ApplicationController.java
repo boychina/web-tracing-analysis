@@ -17,8 +17,16 @@ public class ApplicationController {
     public ApplicationController(ApplicationService service, UserAccountRepository userRepo) { this.service = service; this.userRepo = userRepo; }
 
     @GetMapping("/list")
-    public ResultInfo list() {
-        List<ApplicationInfo> list = service.listAll();
+    public ResultInfo list(javax.servlet.http.HttpSession session) {
+        com.krielwus.webtracinganalysis.entity.UserAccount u = (com.krielwus.webtracinganalysis.entity.UserAccount) session.getAttribute("user");
+        String role = String.valueOf(session.getAttribute("role"));
+        
+        if (u == null || u.getId() == null) {
+            return new ResultInfo(401, "unauthorized");
+        }
+        
+        String userId = String.valueOf(u.getId());
+        List<ApplicationInfo> list = service.listByUser(userId, role);
         return new ResultInfo(1000, "success", list);
     }
 
@@ -161,13 +169,28 @@ public class ApplicationController {
     }
 
     @GetMapping("/users")
-    public ResultInfo users() {
-        java.util.List<com.krielwus.webtracinganalysis.entity.UserAccount> list = userRepo.findAll();
+    public ResultInfo users(javax.servlet.http.HttpSession session) {
+        // 获取当前用户信息
+        String currentRole = String.valueOf(session.getAttribute("role"));
+        
+        // 直接查询非 SUPER_ADMIN 角色用户，提高性能
+        java.util.List<com.krielwus.webtracinganalysis.entity.UserAccount> list = userRepo.findByRoleNot("SUPER_ADMIN");
         java.util.List<java.util.Map<String,Object>> users = new java.util.ArrayList<>();
+        java.util.Map<String,Object> result = new java.util.HashMap<>();
+        
+        // 构建返回数据
         for (com.krielwus.webtracinganalysis.entity.UserAccount u : list) {
-            java.util.Map<String,Object> m = new java.util.HashMap<>(); m.put("id", u.getId()); m.put("username", u.getUsername()); users.add(m);
+            java.util.Map<String,Object> m = new java.util.HashMap<>();
+            m.put("id", u.getId());
+            m.put("username", u.getUsername());
+            m.put("role", u.getRole());
+            users.add(m);
         }
-        return new ResultInfo(1000, "success", users);
+        
+        result.put("users", users);
+        result.put("currentUserRole", currentRole);
+        
+        return new ResultInfo(1000, "success", result);
     }
 
     private java.util.List<String> filterValidUserIds(java.util.List<String> managers) {

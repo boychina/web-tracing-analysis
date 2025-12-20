@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Button,
   Card,
   Checkbox,
+  Col,
   Form,
   Input,
   Modal,
+  Row,
   Space,
   Table,
   Tag,
@@ -26,6 +28,7 @@ type ApplicationRow = {
 type UserItem = {
   id: number;
   username: string;
+  role: string;
 };
 
 type CurrentUser = {
@@ -67,11 +70,37 @@ function ApplicationManagement() {
 
   const canCreate = isSuper || isAdmin;
 
-  useEffect(() => {
-    loadAll();
-  }, []);
+  const userCheckboxes = useMemo(() => {
+    if (!users || users.length === 0) return [];
+    
+    // 计算每列的用户数量
+    const columnCount = 3;
+    const itemsPerColumn = Math.ceil(users.length / columnCount);
+    
+    // 将用户分成三组
+    const columns = [];
+    for (let i = 0; i < columnCount; i++) {
+      const start = i * itemsPerColumn;
+      const end = Math.min(start + itemsPerColumn, users.length);
+      const columnUsers = users.slice(start, end);
+      
+      columns.push(
+        <Col span={8} key={i}>
+          <Space style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}} size="small">
+            {columnUsers.map((u) => (
+              <Checkbox key={u.id} value={u.id}>
+                {u.username}
+              </Checkbox>
+            ))}
+          </Space>
+        </Col>
+      );
+    }
+    
+    return columns;
+  }, [users]);
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     try {
       const [me, us, apps] = await Promise.all([
@@ -82,8 +111,29 @@ function ApplicationManagement() {
       if (me.data && me.data.code === 1000) {
         setCurrentUser(me.data.data as CurrentUser);
       }
-      if (us.data && us.data.code === 1000 && Array.isArray(us.data.data)) {
-        const arr = us.data.data as UserItem[];
+      if (us.data && us.data.code === 1000 && us.data.data) {
+        let arr: UserItem[];
+        
+        // 兼容多种响应格式
+        if (Array.isArray(us.data.data)) {
+          // 数组格式：直接是用户数组（实际响应格式）
+          arr = (us.data.data as any[]).map((u: any) => ({
+            id: u.id,
+            username: u.username,
+            role: 'USER' // 默认角色，因为实际响应中没有role字段
+          }));
+        } else if (us.data.data.users) {
+          // 对象格式：包含 users 字段
+          const responseData = us.data.data as { users: any[], currentUserRole?: string };
+          arr = responseData.users.map((u: any) => ({
+            id: u.id,
+            username: u.username,
+            role: u.role || 'USER'
+          }));
+        } else {
+          arr = [];
+        }
+        
         setUsers(arr);
         const m: Record<string, string> = {};
         arr.forEach((u) => {
@@ -92,14 +142,21 @@ function ApplicationManagement() {
         setUserMap(m);
       }
       if (apps.data && apps.data.code === 1000) {
-        setList(apps.data.data as ApplicationRow[]);
+        console.log('应用数据:', apps.data.data);
+        const applicationList = apps.data.data as ApplicationRow[];
+        setList(applicationList);
       }
-    } catch {
+    } catch (error) {
+      console.error('加载数据失败:', error);
       message.error("加载应用数据失败");
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
   const columns: ColumnsType<ApplicationRow> = useMemo(
     () => [
@@ -273,7 +330,6 @@ function ApplicationManagement() {
           setEditing(null);
         }}
         onOk={handleSubmit}
-        destroyOnClose
       >
         <Form<AppFormValues> layout="vertical" form={form}>
           <Form.Item
@@ -284,9 +340,9 @@ function ApplicationManagement() {
             <Input placeholder="2-16字符" />
           </Form.Item>
           <Form.Item
-            label="代码前缀"
+            label="应用前缀"
             name="appCodePrefix"
-            rules={[{ required: true, message: "请输入代码前缀" }]}
+            rules={[{ required: true, message: "请输入应用前缀" }]}
           >
             <Input placeholder="2-16位字母数字下划线" />
           </Form.Item>
@@ -295,13 +351,9 @@ function ApplicationManagement() {
           </Form.Item>
           <Form.Item label="管理员" name="appManagers">
             <Checkbox.Group style={{ width: "100%" }}>
-              <Space direction="vertical">
-                {users.map((u) => (
-                  <Checkbox key={u.id} value={u.id}>
-                    {u.username}
-                  </Checkbox>
-                ))}
-              </Space>
+              <Row gutter={16}>
+                {userCheckboxes}
+              </Row>
             </Checkbox.Group>
           </Form.Item>
         </Form>
