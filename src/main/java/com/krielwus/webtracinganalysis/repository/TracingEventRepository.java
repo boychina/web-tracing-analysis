@@ -72,4 +72,36 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
             + "GROUP BY day, code\n"
             + "ORDER BY day ASC", nativeQuery = true)
     java.util.List<Object[]> countDailyPvByApp(@Param("start") Date start, @Param("end") Date end);
+
+    /** 统计指定应用代码集合的PV数量 */
+    @Query(value = "SELECT COUNT(*) FROM trace_event WHERE event_type = :eventType AND app_code IN (:appCodes)", nativeQuery = true)
+    long countByEventTypeAndAppCodes(@Param("eventType") String eventType, @Param("appCodes") java.util.Set<String> appCodes);
+
+    /** 统计指定应用代码集合在时间范围内的事件数量 */
+    @Query(value = "SELECT COUNT(*) FROM trace_event WHERE event_type = :eventType AND created_at BETWEEN :start AND :end AND app_code IN (:appCodes)", nativeQuery = true)
+    long countByEventTypeAndCreatedAtBetweenAndAppCodes(@Param("eventType") String eventType, @Param("start") Date start, @Param("end") Date end, @Param("appCodes") java.util.Set<String> appCodes);
+
+    /** 统计指定应用代码集合在时间范围内的去重应用数 */
+    @Query(value = "SELECT COUNT(DISTINCT app_code) FROM trace_event WHERE created_at BETWEEN :start AND :end AND app_code IN (:appCodes)", nativeQuery = true)
+    long countDistinctAppCodeBetweenAndAppCodes(@Param("start") Date start, @Param("end") Date end, @Param("appCodes") java.util.Set<String> appCodes);
+
+    /** 统计指定应用代码集合在时间范围内的去重用户数 */
+    @Query(value = "SELECT COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(payload, '$.sdkUserUuid'))) FROM trace_event WHERE created_at BETWEEN :start AND :end AND app_code IN (:appCodes)", nativeQuery = true)
+    long countDistinctSdkUserUuidBetweenAndAppCodes(@Param("start") Date start, @Param("end") Date end, @Param("appCodes") java.util.Set<String> appCodes);
+
+    /** 统计指定应用代码集合在时间范围内的去重设备数 */
+    @Query(value = "SELECT COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(payload, '$.deviceId'))) FROM trace_event WHERE created_at BETWEEN :start AND :end AND app_code IN (:appCodes)", nativeQuery = true)
+    long countDistinctDeviceIdBetweenAndAppCodes(@Param("start") Date start, @Param("end") Date end, @Param("appCodes") java.util.Set<String> appCodes);
+
+    /** 统计指定应用代码集合在时间范围内的去重会话数 */
+    @Query(value = "SELECT COUNT(DISTINCT session_id) FROM trace_event WHERE created_at BETWEEN :start AND :end AND app_code IN (:appCodes)", nativeQuery = true)
+    long countDistinctSessionIdBetweenAndAppCodes(@Param("start") Date start, @Param("end") Date end, @Param("appCodes") java.util.Set<String> appCodes);
+
+    /** 统计指定应用代码集合的每日PV数 */
+    @Query(value = "SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day, app_code AS code, COUNT(*) AS pv\n"
+            + "FROM trace_event\n"
+            + "WHERE event_type = 'PV' AND created_at BETWEEN :start AND :end AND app_code IN (:appCodes)\n"
+            + "GROUP BY day, code\n"
+            + "ORDER BY day ASC", nativeQuery = true)
+    java.util.List<Object[]> countDailyPvByAppAndAppCodes(@Param("start") Date start, @Param("end") Date end, @Param("appCodes") java.util.Set<String> appCodes);
 }

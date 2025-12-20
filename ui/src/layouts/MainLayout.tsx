@@ -32,16 +32,16 @@ const STATIC_MENU: RawMenuItem[] = [
   {
     icon: "layui-icon layui-icon-console",
     id: "11",
-    title: "应用管理",
+    title: "应用监控",
     type: 1,
-    path: "/application",
+    path: "/application/monitor",
   },
   {
     icon: "layui-icon layui-icon-console",
     id: "12",
-    title: "应用监控",
+    title: "应用管理",
     type: 1,
-    path: "/application/monitor",
+    path: "/application",
   },
   {
     icon: "layui-icon layui-icon-console",

@@ -53,6 +53,7 @@ public class LoginController {
             UserAccount user = userService.findByUsername(username);
             if (user != null) {
                 session.setAttribute("user", user);
+                session.setAttribute("userId", user.getId());
                 session.setAttribute("username", user.getUsername());
                 session.setAttribute("role", user.getRole());
             } else {

@@ -25,24 +25,30 @@ public class ApplicationService {
 
     public List<ApplicationInfo> listAll() { return repo.findAll(); }
 
-    public List<ApplicationInfo> listByUser(String userId, String userRole) {
-        List<ApplicationInfo> allApps = repo.findAll();
+    public List<ApplicationInfo> listByUser(String userId, String username, String userRole) {
         if ("SUPER_ADMIN".equals(userRole)) {
-            return allApps;
+            return repo.findAll();
         }
         
+        // 对于普通用户，app_managers 是 JSON 数组，只能在内存中过滤
+        List<ApplicationInfo> allApps = repo.findAll();
         return allApps.stream()
-                .filter(app -> isUserManager(app, userId))
+                .filter(app -> app.getAppManagers() != null && !app.getAppManagers().trim().isEmpty())
+                .filter(app -> isUserManager(app, userId, username))
                 .collect(java.util.stream.Collectors.toList());
     }
 
-    private boolean isUserManager(ApplicationInfo app, String userId) {
-        if (userId == null || app.getAppManagers() == null) {
+    private boolean isUserManager(ApplicationInfo app, String userId, String username) {
+        if (app.getAppManagers() == null) {
             return false;
         }
         try {
             java.util.List<String> managers = JSON.parseArray(app.getAppManagers(), String.class);
-            return managers != null && managers.contains(userId);
+            if (managers == null) return false;
+            // 兼容存储 userId（数字或字符串）或 username 的情况
+            if (userId != null && managers.contains(userId)) return true;
+            if (username != null && managers.contains(username)) return true;
+            return false;
         } catch (Exception e) {
             return false;
         }

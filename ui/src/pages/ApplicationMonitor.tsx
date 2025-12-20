@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Button, Card, Col, Row, Select, Table, Typography, message } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import { Button, Card, Col, Row, Select, message } from "antd";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
+import EChart from "../components/EChart";
+import MetricCard from "../components/MetricCard";
 
 type AppItem = {
   id: number;
@@ -38,6 +39,11 @@ type PagePvItem = {
   PAGE_URL: string;
   PV_NUM: number;
 };
+
+function ellipsis(value: string, maxLen: number) {
+  if (value.length <= maxLen) return value;
+  return `${value.slice(0, maxLen)}...`;
+}
 
 function buildRangeDates(n: number) {
   const result: string[] = [];
@@ -87,22 +93,23 @@ function ApplicationMonitor() {
     setLoading(true);
     try {
       const dates = buildRangeDates(7);
-      const [dailyResp, allResp, dailyPvResp, weeklyPageResp] = await Promise.all([
-        client.get("/application/monitor/dailyBase", {
-          params: { appCode }
-        }),
-        client.get("/application/monitor/allBase", {
-          params: { appCode }
-        }),
-        client.post("/application/monitor/dailyPV", {
-          appCode,
-          startDate: dates[0],
-          endDate: dates[dates.length - 1]
-        }),
-        client.get("/application/monitor/weeklyPagePV", {
-          params: { appCode }
-        })
-      ]);
+      const [dailyResp, allResp, dailyPvResp, weeklyPageResp] =
+        await Promise.all([
+          client.get("/application/monitor/dailyBase", {
+            params: { appCode },
+          }),
+          client.get("/application/monitor/allBase", {
+            params: { appCode },
+          }),
+          client.post("/application/monitor/dailyPV", {
+            appCode,
+            startDate: dates[0],
+            endDate: dates[dates.length - 1],
+          }),
+          client.get("/application/monitor/weeklyPagePV", {
+            params: { appCode },
+          }),
+        ]);
 
       if (dailyResp.data && dailyResp.data.code === 1000) {
         const d = dailyResp.data.data[0] as DailyBase;
@@ -126,7 +133,7 @@ function ApplicationMonitor() {
           const found = list.find((it) => it.DATETIME === date);
           return {
             DATETIME: date,
-            PV_NUM: found ? found.PV_NUM : 0
+            PV_NUM: found ? found.PV_NUM : 0,
           };
         });
         setDailyList(mapped);
@@ -148,15 +155,55 @@ function ApplicationMonitor() {
     }
   }
 
-  const dailyColumns: ColumnsType<DailyItem> = [
-    { title: "日期", dataIndex: "DATETIME" },
-    { title: "PV", dataIndex: "PV_NUM" }
-  ];
+  const trendOption = {
+    grid: { left: 40, right: 20, top: 30, bottom: 40 },
+    tooltip: { trigger: "axis" },
+    xAxis: {
+      type: "category",
+      data: dailyList.map((d) => d.DATETIME.slice(5)),
+    },
+    yAxis: { type: "value" },
+    series: [
+      {
+        name: "PV",
+        type: "line",
+        smooth: true,
+        data: dailyList.map((d) => d.PV_NUM),
+      },
+    ],
+  } as const;
 
-  const pageColumns: ColumnsType<PagePvItem> = [
-    { title: "页面地址", dataIndex: "PAGE_URL", ellipsis: true },
-    { title: "PV", dataIndex: "PV_NUM", width: 120 }
-  ];
+  const pagePvOption = {
+    grid: { left: 40, right: 20, top: 30, bottom: 90 },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      formatter: (params: any) => {
+        const first = Array.isArray(params) ? params[0] : params;
+        const url = first?.axisValue || "";
+        const val = first?.data ?? 0;
+        return `${url}<br/>PV: ${val}`;
+      },
+    },
+    xAxis: {
+      type: "category",
+      data: pagePv.map((p) => p.PAGE_URL),
+      axisLabel: {
+        interval: 0,
+        rotate: 30,
+        formatter: (value: string) => ellipsis(value, 18),
+      },
+    },
+    yAxis: { type: "value" },
+    series: [
+      {
+        name: "PV",
+        type: "bar",
+        data: pagePv.map((p) => p.PV_NUM),
+        barMaxWidth: 32,
+      },
+    ],
+  } as const;
 
   return (
     <div>
@@ -176,7 +223,7 @@ function ApplicationMonitor() {
               }}
               options={apps.map((a) => ({
                 label: `${a.appName}(${a.appCode})`,
-                value: a.appCode
+                value: a.appCode,
               }))}
             />
           </Col>
@@ -189,95 +236,65 @@ function ApplicationMonitor() {
       </Card>
       <Row gutter={16}>
         <Col xs={24} md={4}>
-          <Card loading={loading}>
-            <Typography.Text>日活跃用户</Typography.Text>
-            <div style={{ fontSize: 24, marginTop: 8 }}>
-              {dailyBase ? dailyBase.USER_COUNT : 0}
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-              历史用户数: {allBase ? allBase.USER_COUNT : 0}
-            </div>
-          </Card>
+          <MetricCard
+            loading={loading}
+            title="日活跃用户"
+            value={dailyBase ? dailyBase.USER_COUNT : 0}
+            footer={`历史用户数: ${allBase ? allBase.USER_COUNT : 0}`}
+          />
         </Col>
         <Col xs={24} md={4}>
-          <Card loading={loading}>
-            <Typography.Text>日活跃设备</Typography.Text>
-            <div style={{ fontSize: 24, marginTop: 8 }}>
-              {dailyBase ? dailyBase.DEVICE_NUM : 0}
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-              历史设备数: {allBase ? allBase.DEVICE_NUM : 0}
-            </div>
-          </Card>
+          <MetricCard
+            loading={loading}
+            title="日活跃设备"
+            value={dailyBase ? dailyBase.DEVICE_NUM : 0}
+            footer={`历史设备数: ${allBase ? allBase.DEVICE_NUM : 0}`}
+          />
         </Col>
         <Col xs={24} md={4}>
-          <Card loading={loading}>
-            <Typography.Text>日活跃会话</Typography.Text>
-            <div style={{ fontSize: 24, marginTop: 8 }}>
-              {dailyBase ? dailyBase.SESSION_UNM : 0}
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-              历史会话数: {allBase ? allBase.SESSION_UNM : 0}
-            </div>
-          </Card>
+          <MetricCard
+            loading={loading}
+            title="日活跃会话"
+            value={dailyBase ? dailyBase.SESSION_UNM : 0}
+            footer={`历史会话数: ${allBase ? allBase.SESSION_UNM : 0}`}
+          />
         </Col>
         <Col xs={24} md={4}>
-          <Card loading={loading}>
-            <Typography.Text>日点击量</Typography.Text>
-            <div style={{ fontSize: 24, marginTop: 8 }}>
-              {dailyBase ? dailyBase.CLICK_NUM : 0}
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-              历史点击量: {allBase ? allBase.CLICK_NUM : 0}
-            </div>
-          </Card>
+          <MetricCard
+            loading={loading}
+            title="日点击量"
+            value={dailyBase ? dailyBase.CLICK_NUM : 0}
+            footer={`历史点击量: ${allBase ? allBase.CLICK_NUM : 0}`}
+          />
         </Col>
         <Col xs={24} md={4}>
-          <Card loading={loading}>
-            <Typography.Text>日浏览PV</Typography.Text>
-            <div style={{ fontSize: 24, marginTop: 8 }}>
-              {dailyBase ? dailyBase.PV_NUM : 0}
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-              历史浏览数: {allBase ? allBase.PV_NUM : 0}
-            </div>
-          </Card>
+          <MetricCard
+            loading={loading}
+            title="日浏览PV"
+            value={dailyBase ? dailyBase.PV_NUM : 0}
+            footer={`历史浏览数: ${allBase ? allBase.PV_NUM : 0}`}
+          />
         </Col>
         <Col xs={24} md={4}>
-          <Card loading={loading}>
-            <Typography.Text>日上报错误</Typography.Text>
-            <div style={{ fontSize: 24, marginTop: 8 }}>
-              {dailyBase ? dailyBase.ERROR_NUM || 0 : 0}
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-              历史错误数: {allBase ? allBase.ERROR_NUM || 0 : 0}
-            </div>
-          </Card>
+          <MetricCard
+            loading={loading}
+            title="日上报错误"
+            value={dailyBase ? dailyBase.ERROR_NUM || 0 : 0}
+            footer={`历史错误数: ${allBase ? allBase.ERROR_NUM || 0 : 0}`}
+          />
         </Col>
       </Row>
       <Row gutter={16} style={{ marginTop: 16 }}>
         <Col span={24}>
           <Card title="本周访问趋势" loading={loading}>
-            <Table<DailyItem>
-              rowKey="DATETIME"
-              columns={dailyColumns}
-              dataSource={dailyList}
-              pagination={false}
-              size="small"
-            />
+            <EChart option={trendOption} height={360} />
           </Card>
         </Col>
       </Row>
       <Row gutter={16} style={{ marginTop: 16 }}>
         <Col span={24}>
           <Card title="本周各页面 PV" loading={loading}>
-            <Table<PagePvItem>
-              rowKey="PAGE_URL"
-              columns={pageColumns}
-              dataSource={pagePv}
-              pagination={false}
-              size="small"
-            />
+            <EChart option={pagePvOption} height={420} />
           </Card>
         </Col>
       </Row>
@@ -286,4 +303,3 @@ function ApplicationMonitor() {
 }
 
 export default ApplicationMonitor;
-

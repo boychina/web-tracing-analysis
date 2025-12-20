@@ -26,7 +26,8 @@ public class ApplicationController {
         }
         
         String userId = String.valueOf(u.getId());
-        List<ApplicationInfo> list = service.listByUser(userId, role);
+        String username = u.getUsername();
+        List<ApplicationInfo> list = service.listByUser(userId, username, role);
         return new ResultInfo(1000, "success", list);
     }
 

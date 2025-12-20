@@ -1,7 +1,8 @@
-import { Card, Col, Row, Skeleton, Statistic } from "antd";
-import { useEffect, useMemo, useRef, useState } from "react";
-import * as echarts from "echarts";
+import { Card, Col, Row, Skeleton } from "antd";
+import { useEffect, useMemo, useState } from "react";
 import client from "../api/client";
+import EChart from "../components/EChart";
+import MetricCard from "../components/MetricCard";
 
 type BaseInfoItem = {
   DAY_TIME?: string;
@@ -22,23 +23,20 @@ type DailySeriesItem = {
 };
 
 function formatNumber(value?: number) {
-  if (value == null) return 0;
-  return value;
+  return typeof value === "number" ? value : 0;
 }
 
-function computeDateRange(days: number) {
-  const now = new Date();
-  const past = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-  const format = (d: Date) => {
+function buildRangeDates(n: number) {
+  const result: string[] = [];
+  const today = new Date();
+  for (let i = 0; i < n; i += 1) {
+    const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
     const y = d.getFullYear();
-    const m = `${d.getMonth() + 1}`.padStart(2, "0");
-    const day = `${d.getDate()}`.padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-  return {
-    startDate: format(past),
-    endDate: format(now)
-  };
+    const m = `0${d.getMonth() + 1}`.slice(-2);
+    const day = `0${d.getDate()}`.slice(-2);
+    result.push(`${y}-${m}-${day}`);
+  }
+  return result.reverse();
 }
 
 function AnalysisDashboard() {
@@ -46,22 +44,6 @@ function AnalysisDashboard() {
   const [allBase, setAllBase] = useState<BaseInfoItem | null>(null);
   const [series, setSeries] = useState<DailySeriesItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const chartRef = useRef<HTMLDivElement | null>(null);
-  const chartInstanceRef = useRef<echarts.ECharts | null>(null);
-
-  useEffect(() => {
-    if (!chartRef.current) return;
-    const instance = echarts.init(chartRef.current);
-    chartInstanceRef.current = instance;
-    const handleResize = () => {
-      instance.resize();
-    };
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      instance.dispose();
-    };
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -70,7 +52,7 @@ function AnalysisDashboard() {
       try {
         const [dailyResp, allResp] = await Promise.all([
           client.get("/webTrack/queryDailyBaseInfo"),
-          client.get("/webTrack/queryAllBaseInfo")
+          client.get("/webTrack/queryAllBaseInfo"),
         ]);
         if (
           mounted &&
@@ -90,10 +72,10 @@ function AnalysisDashboard() {
         ) {
           setAllBase(allResp.data.data[0] as BaseInfoItem);
         }
-        const range = computeDateRange(7);
+        const dates = buildRangeDates(30);
         const dailyInfoResp = await client.post("/webTrack/queryDailyInfo", {
-          startDate: range.startDate,
-          endDate: range.endDate
+          startDate: dates[0],
+          endDate: dates[dates.length - 1],
         });
         if (
           mounted &&
@@ -114,66 +96,51 @@ function AnalysisDashboard() {
   }, []);
 
   const chartOption = useMemo(() => {
-    const daysSet = new Set<string>();
-    const codesSet = new Set<string>();
+    const dates = buildRangeDates(30);
     const nameByCode: Record<string, string> = {};
-    series.forEach((item) => {
-      if (item.DATETIME) {
-        daysSet.add(item.DATETIME);
+    const pvByCodeAndDate = new Map<string, Map<string, number>>();
+    const codes: string[] = [];
+
+    for (const item of series) {
+      const code = item.APP_CODE;
+      const date = item.DATETIME;
+      if (!code || !date) continue;
+      if (!pvByCodeAndDate.has(code)) {
+        pvByCodeAndDate.set(code, new Map());
+        codes.push(code);
       }
-      if (item.APP_CODE) {
-        codesSet.add(item.APP_CODE);
-        if (item.APP_NAME) {
-          nameByCode[item.APP_CODE] = item.APP_NAME;
-        }
+      if (item.APP_NAME) {
+        nameByCode[code] = item.APP_NAME;
       }
-    });
-    const days = Array.from(daysSet).sort();
-    const codes = Array.from(codesSet);
+      const pv = typeof item.PV_NUM === "number" ? item.PV_NUM : 0;
+      pvByCodeAndDate.get(code)!.set(date, pv);
+    }
+
     const seriesList = codes.map((code) => {
       const name = nameByCode[code] || code;
-      const data = days.map((day) => {
-        const row = series.find(
-          (it) => it.APP_CODE === code && it.DATETIME === day
-        );
-        return row && typeof row.PV_NUM === "number" ? row.PV_NUM : 0;
-      });
+      const map = pvByCodeAndDate.get(code) || new Map<string, number>();
       return {
         name,
         type: "line",
         smooth: true,
-        data
+        data: dates.map((d) => map.get(d) || 0),
       };
     });
+
     return {
-      title: {
-        text: "一周访问趋势图",
-        textStyle: { color: "#28333e", fontSize: 14 }
-      },
       tooltip: { trigger: "axis" },
-      legend: {
-        data: codes.map((code) => nameByCode[code] || code)
-      },
+      legend: { data: seriesList.map((s) => s.name) },
+      grid: { left: 40, right: 20, top: 50, bottom: 50 },
       xAxis: {
         type: "category",
-        data: days
+        data: dates,
+        axisLabel: { formatter: (value: string) => value.slice(5) },
       },
-      yAxis: {
-        type: "value"
-      },
-      toolbox: {
-        feature: {
-          saveAsImage: {}
-        }
-      },
-      series: seriesList
+      yAxis: { type: "value" },
+      toolbox: { feature: { saveAsImage: {} } },
+      series: seriesList,
     };
   }, [series]);
-
-  useEffect(() => {
-    if (!chartInstanceRef.current) return;
-    chartInstanceRef.current.setOption(chartOption);
-  }, [chartOption]);
 
   const total = allBase || {};
   const today = dailyBase || {};
@@ -183,82 +150,54 @@ function AnalysisDashboard() {
       <Skeleton loading={loading && !dailyBase} active>
         <Row gutter={[16, 16]}>
           <Col xs={12} md={4}>
-            <Card>
-              <Statistic
-                title="应用数量"
-                value={formatNumber(today.APPLICATION_NUM)}
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-                历史总数: {formatNumber(total.APPLICATION_NUM)}
-              </div>
-            </Card>
+            <MetricCard
+              title="应用数量"
+              value={formatNumber(today.APPLICATION_NUM)}
+              footer={`历史总数: ${formatNumber(total.APPLICATION_NUM)}`}
+            />
           </Col>
           <Col xs={12} md={4}>
-            <Card>
-              <Statistic
-                title="日活跃用户"
-                value={formatNumber(today.USER_COUNT)}
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-                历史用户数: {formatNumber(total.USER_COUNT)}
-              </div>
-            </Card>
+            <MetricCard
+              title="日活跃用户"
+              value={formatNumber(today.USER_COUNT)}
+              footer={`历史用户数: ${formatNumber(total.USER_COUNT)}`}
+            />
           </Col>
           <Col xs={12} md={4}>
-            <Card>
-              <Statistic
-                title="日活跃设备"
-                value={formatNumber(today.DEVICE_NUM)}
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-                历史设备数: {formatNumber(total.DEVICE_NUM)}
-              </div>
-            </Card>
+            <MetricCard
+              title="日活跃设备"
+              value={formatNumber(today.DEVICE_NUM)}
+              footer={`历史设备数: ${formatNumber(total.DEVICE_NUM)}`}
+            />
           </Col>
           <Col xs={12} md={4}>
-            <Card>
-              <Statistic
-                title="日活跃会话"
-                value={formatNumber(today.SESSION_UNM)}
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-                历史会话数: {formatNumber(total.SESSION_UNM)}
-              </div>
-            </Card>
+            <MetricCard
+              title="日活跃会话"
+              value={formatNumber(today.SESSION_UNM)}
+              footer={`历史会话数: ${formatNumber(total.SESSION_UNM)}`}
+            />
           </Col>
           <Col xs={12} md={4}>
-            <Card>
-              <Statistic
-                title="日点击量"
-                value={formatNumber(today.CLICK_NUM)}
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-                历史点击量: {formatNumber(total.CLICK_NUM)}
-              </div>
-            </Card>
+            <MetricCard
+              title="日点击量"
+              value={formatNumber(today.CLICK_NUM)}
+              footer={`历史点击量: ${formatNumber(total.CLICK_NUM)}`}
+            />
           </Col>
           <Col xs={12} md={4}>
-            <Card>
-              <Statistic
-                title="日浏览PV"
-                value={formatNumber(today.PV_NUM)}
-              />
-              <div style={{ marginTop: 8, fontSize: 12, color: "#999" }}>
-                历史浏览数: {formatNumber(total.PV_NUM)}
-              </div>
-            </Card>
+            <MetricCard
+              title="日浏览PV"
+              value={formatNumber(today.PV_NUM)}
+              footer={`历史浏览数: ${formatNumber(total.PV_NUM)}`}
+            />
           </Col>
         </Row>
       </Skeleton>
-      <Card style={{ marginTop: 16 }}>
-        <div
-          ref={chartRef}
-          style={{ width: "100%", height: 400, minHeight: 400 }}
-        />
+      <Card title="应用访问趋势" style={{ marginTop: 16 }} loading={loading}>
+        <EChart option={chartOption} height={420} />
       </Card>
     </div>
   );
 }
 
 export default AnalysisDashboard;
-

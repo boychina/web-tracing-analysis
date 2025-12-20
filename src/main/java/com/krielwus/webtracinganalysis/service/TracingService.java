@@ -16,8 +16,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.util.concurrent.ConcurrentHashMap;
 
 import java.util.*;
 import java.time.LocalDate;
@@ -34,6 +37,7 @@ public class TracingService {
     private final TracingEventRepository tracingEventRepository;
     private final BaseInfoRecordRepository baseInfoRecordRepository;
     private final ApplicationInfoRepository applicationInfoRepository;
+    private final ApplicationService applicationService;
     private final PlatformTransactionManager transactionManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final DateTimeFormatter DF = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -49,14 +53,20 @@ public class TracingService {
     private long offerTimeoutMs;
     private BlockingQueue<Map<String, Object>> ingestQueue;
     private ExecutorService consumerPool;
+    
+    // 缓存用户权限应用代码集合，避免重复查询；key 兼容 userId 和 username
+    private final ConcurrentHashMap<String, Set<String>> userAppCodesCache = new ConcurrentHashMap<>();
 
+    @Autowired
     public TracingService(TracingEventRepository tracingEventRepository,
                           BaseInfoRecordRepository baseInfoRecordRepository,
                           ApplicationInfoRepository applicationInfoRepository,
+                          @Lazy ApplicationService applicationService,
                           PlatformTransactionManager transactionManager) {
         this.tracingEventRepository = tracingEventRepository;
         this.baseInfoRecordRepository = baseInfoRecordRepository;
         this.applicationInfoRepository = applicationInfoRepository;
+        this.applicationService = applicationService;
         this.transactionManager = transactionManager;
     }
 
@@ -243,6 +253,50 @@ public class TracingService {
     }
 
     /**
+     * 统计指定用户有权限的应用的基础指标（基于 trace_event）。
+     */
+    public Map<String, Object> aggregateDailyBaseForUser(LocalDate date, String userId, String username) {
+        Date start = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date end = Date.from(date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        
+        // 获取用户有权限的应用代码
+        Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+        
+        // 如果没有权限访问任何应用，返回空数据
+        if (userAppCodes.isEmpty()) {
+            Map<String, Object> emptyItem = new LinkedHashMap<>();
+            emptyItem.put("DAY_TIME", DF.format(date));
+            emptyItem.put("APPLICATION_NUM", 0);
+            emptyItem.put("USER_COUNT", 0);
+            emptyItem.put("DEVICE_NUM", 0);
+            emptyItem.put("SESSION_UNM", 0);
+            emptyItem.put("CLICK_NUM", 0);
+            emptyItem.put("PV_NUM", 0);
+            emptyItem.put("ERROR_NUM", 0);
+            return emptyItem;
+        }
+        
+        int appCount = (int) tracingEventRepository.countDistinctAppCodeBetweenAndAppCodes(start, end, userAppCodes);
+        int userCount = (int) tracingEventRepository.countDistinctSdkUserUuidBetweenAndAppCodes(start, end, userAppCodes);
+        int deviceCount = (int) tracingEventRepository.countDistinctDeviceIdBetweenAndAppCodes(start, end, userAppCodes);
+        int sessionCount = (int) tracingEventRepository.countDistinctSessionIdBetweenAndAppCodes(start, end, userAppCodes);
+        int pv = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetweenAndAppCodes("PV", start, end, userAppCodes);
+        int click = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetweenAndAppCodes("CLICK", start, end, userAppCodes);
+        int error = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetweenAndAppCodes("ERROR", start, end, userAppCodes);
+        
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("DAY_TIME", DF.format(date));
+        item.put("APPLICATION_NUM", userAppCodes.size());
+        item.put("USER_COUNT", userCount);
+        item.put("DEVICE_NUM", deviceCount);
+        item.put("SESSION_UNM", sessionCount);
+        item.put("CLICK_NUM", click);
+        item.put("PV_NUM", pv);
+        item.put("ERROR_NUM", error);
+        return item;
+    }
+
+    /**
      * 统计所有数据的累计指标（基于 trace_event）。
      */
     public Map<String, Object> aggregateAllBase() {
@@ -255,6 +309,44 @@ public class TracingService {
         int error = (int) tracingEventRepository.countByEventType("ERROR");
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("APPLICATION_NUM", apps.size());
+        item.put("USER_COUNT", users.size());
+        item.put("DEVICE_NUM", devices.size());
+        item.put("SESSION_UNM", sessions.size());
+        item.put("CLICK_NUM", click);
+        item.put("PV_NUM", pv);
+        item.put("ERROR_NUM", error);
+        return item;
+    }
+
+    /**
+     * 统计指定用户有权限的应用的累计指标（基于 trace_event）。
+     */
+    public Map<String, Object> aggregateAllBaseForUser(String userId, String username) {
+        // 获取用户有权限的应用代码
+        Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+        
+        // 如果没有权限访问任何应用，返回空数据
+        if (userAppCodes.isEmpty()) {
+            Map<String, Object> emptyItem = new LinkedHashMap<>();
+            emptyItem.put("APPLICATION_NUM", 0);
+            emptyItem.put("USER_COUNT", 0);
+            emptyItem.put("DEVICE_NUM", 0);
+            emptyItem.put("SESSION_UNM", 0);
+            emptyItem.put("CLICK_NUM", 0);
+            emptyItem.put("PV_NUM", 0);
+            emptyItem.put("ERROR_NUM", 0);
+            return emptyItem;
+        }
+        
+        Set<String> users = distinctSdkUserUuidsAllByAppCodes(userAppCodes);
+        Set<String> devices = distinctDeviceIdsAllByAppCodes(userAppCodes);
+        Set<String> sessions = distinctSessionIdsAllByAppCodes(userAppCodes);
+        int pv = (int) tracingEventRepository.countByEventTypeAndAppCodes("PV", userAppCodes);
+        int click = (int) tracingEventRepository.countByEventTypeAndAppCodes("CLICK", userAppCodes);
+        int error = (int) tracingEventRepository.countByEventTypeAndAppCodes("ERROR", userAppCodes);
+        
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("APPLICATION_NUM", userAppCodes.size());
         item.put("USER_COUNT", users.size());
         item.put("DEVICE_NUM", devices.size());
         item.put("SESSION_UNM", sessions.size());
@@ -288,6 +380,55 @@ public class TracingService {
                 row.put("VERSION_ID", v);
                 row.put("DATETIME", DF.format(d));
                 row.put("PV_NUM", pvByVersion.getOrDefault(v, 0));
+                out.add(row);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 按应用（appCode）统计日期范围内每日 PV 数，并返回 appCode 与 appName（仅限用户有权限的应用）。
+     */
+    public List<Map<String, Object>> aggregateDailyPVByAppForUser(LocalDate startDate, LocalDate endDate, String userId, String username) {
+        Date rangeStart = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date rangeEnd = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        
+        // 获取用户有权限的应用代码
+        Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+        
+        // 如果没有权限访问任何应用，返回空列表
+        if (userAppCodes.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        java.util.List<Object[]> rows = tracingEventRepository.countDailyPvByAppAndAppCodes(rangeStart, rangeEnd, userAppCodes);
+        Map<String, String> nameByCode = new HashMap<>();
+        for (com.krielwus.webtracinganalysis.entity.ApplicationInfo ai : applicationInfoRepository.findAll()) {
+            if (ai.getAppCode() != null && !ai.getAppCode().isEmpty() && userAppCodes.contains(ai.getAppCode())) {
+                nameByCode.put(ai.getAppCode(), ai.getAppName() == null ? ai.getAppCode() : ai.getAppName());
+            }
+        }
+        
+        Set<String> allCodes = new HashSet<>(userAppCodes);
+        Map<String, Map<String, Integer>> pv = new HashMap<>();
+        for (Object[] r : rows) {
+            String day = String.valueOf(r[0]);
+            String code = String.valueOf(r[1]);
+            int cnt = ((Number) r[2]).intValue();
+            allCodes.add(code);
+            pv.computeIfAbsent(day, k -> new HashMap<>()).put(code, cnt);
+        }
+        
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            String day = DF.format(d);
+            Map<String, Integer> byCode = pv.getOrDefault(day, Collections.emptyMap());
+            for (String code : allCodes) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("APP_CODE", code);
+                row.put("APP_NAME", nameByCode.getOrDefault(code, code));
+                row.put("DATETIME", day);
+                row.put("PV_NUM", byCode.getOrDefault(code, 0));
                 out.add(row);
             }
         }
@@ -681,6 +822,71 @@ public class TracingService {
             Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
             String uid = getString(m, "sdkUserUuid");
             if (uid != null && !uid.isEmpty()) set.add(uid);
+        }
+        return set;
+    }
+
+    /**
+     * 获取用户有权限访问的应用代码集合（带缓存，兼容 userId 与 username）
+     */
+    private Set<String> getUserAccessibleAppCodes(String userId, String username) {
+        if (userId == null && username == null) {
+            return new HashSet<>();
+        }
+        String cacheKey = (userId == null ? "" : userId) + "|" + (username == null ? "" : username);
+        
+        // 先从缓存中获取
+        Set<String> cachedAppCodes = userAppCodesCache.get(cacheKey);
+        if (cachedAppCodes != null) {
+            return cachedAppCodes;
+        }
+        
+        // 缓存未命中，从数据库查询
+        List<com.krielwus.webtracinganalysis.entity.ApplicationInfo> apps = applicationService.listByUser(userId, username, "USER");
+        Set<String> appCodes = new HashSet<>();
+        for (com.krielwus.webtracinganalysis.entity.ApplicationInfo app : apps) {
+            if (app.getAppCode() != null && !app.getAppCode().isEmpty()) {
+                appCodes.add(app.getAppCode());
+            }
+        }
+        
+        // 放入缓存
+        userAppCodesCache.put(cacheKey, appCodes);
+        return appCodes;
+    }
+
+    /**
+     * 获取指定应用代码集合的去重用户UUID集合
+     */
+    private Set<String> distinctSdkUserUuidsAllByAppCodes(Set<String> appCodes) {
+        Set<String> set = new HashSet<>();
+        for (String appCode : appCodes) {
+            Set<String> appUsers = distinctSdkUserUuidsAllByApp(appCode);
+            set.addAll(appUsers);
+        }
+        return set;
+    }
+
+    /**
+     * 获取指定应用代码集合的去重设备ID集合
+     */
+    private Set<String> distinctDeviceIdsAllByAppCodes(Set<String> appCodes) {
+        Set<String> set = new HashSet<>();
+        for (String appCode : appCodes) {
+            Set<String> appDevices = distinctDeviceIdsAllByApp(appCode);
+            set.addAll(appDevices);
+        }
+        return set;
+    }
+
+    /**
+     * 获取指定应用代码集合的去重会话ID集合
+     */
+    private Set<String> distinctSessionIdsAllByAppCodes(Set<String> appCodes) {
+        Set<String> set = new HashSet<>();
+        for (String appCode : appCodes) {
+            Set<String> appSessions = distinctSessionIdsAllByApp(appCode);
+            set.addAll(appSessions);
         }
         return set;
     }
