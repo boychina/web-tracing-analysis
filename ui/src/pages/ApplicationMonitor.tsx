@@ -285,16 +285,14 @@ function ApplicationMonitor() {
         </Col>
       </Row>
       <Row gutter={16} style={{ marginTop: 16 }}>
-        <Col span={24}>
+        <Col span={12}>
           <Card title="本周访问趋势" loading={loading}>
             <EChart option={trendOption} height={360} />
           </Card>
         </Col>
-      </Row>
-      <Row gutter={16} style={{ marginTop: 16 }}>
-        <Col span={24}>
+        <Col span={12}>
           <Card title="本周各页面 PV" loading={loading}>
-            <EChart option={pagePvOption} height={420} />
+            <EChart option={pagePvOption} height={360} />
           </Card>
         </Col>
       </Row>

@@ -15,5 +15,5 @@ FROM eclipse-temurin:8-jre-jammy
 WORKDIR /app
 # 从构建阶段复制生成的 JAR 包
 COPY --from=build /app/target/web-tracing-analysis.jar app.jar
-EXPOSE 8080
+EXPOSE 17001
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -1,5 +1,6 @@
-import { Layout, Menu, Spin } from "antd";
+import { Button, Layout, Menu, Spin } from "antd";
 import type { MenuProps } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import client from "../api/client";
@@ -78,6 +79,7 @@ function MainLayout() {
   const [loading, setLoading] = useState(true);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [user, setUser] = useState<UserInfo | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -106,6 +108,20 @@ function MainLayout() {
   const selectedKeys = useMemo(() => {
     const path = location.pathname || "/";
     return [path];
+  }, [location.pathname]);
+
+  const headerTitle = useMemo(() => {
+    const pathname = location.pathname || "/";
+    const routeMap: Array<{ path: string; title: string }> = [
+      { path: "/analysis/userTrack", title: "用户行为分析" },
+      { path: "/analysis", title: "分析页" },
+      { path: "/application/monitor", title: "应用监控" },
+      { path: "/application", title: "应用管理" },
+      { path: "/user", title: "用户管理" },
+      { path: "/listing/table", title: "列表" },
+    ];
+    const found = routeMap.find((r) => pathname.startsWith(r.path));
+    return found ? found.title : "管理控制台";
   }, [location.pathname]);
 
   if (loading) {
@@ -162,7 +178,16 @@ function MainLayout() {
             justifyContent: "space-between",
           }}
         >
-          <div>管理控制台</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div>{headerTitle}</div>
+            <Button
+              type="text"
+              icon={<ReloadOutlined />}
+              onClick={() => setRefreshKey((v) => v + 1)}
+            >
+              刷新
+            </Button>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span>{user.username}</span>
             <a
@@ -185,7 +210,7 @@ function MainLayout() {
               minHeight: "calc(100vh - 112px)",
             }}
           >
-            <Outlet />
+            <Outlet key={`${location.pathname}:${refreshKey}`} />
           </div>
         </Layout.Content>
       </Layout>

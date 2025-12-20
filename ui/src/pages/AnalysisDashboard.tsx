@@ -147,52 +147,56 @@ function AnalysisDashboard() {
 
   return (
     <div>
-      <Skeleton loading={loading && !dailyBase} active>
-        <Row gutter={[16, 16]}>
-          <Col xs={12} md={4}>
-            <MetricCard
-              title="应用数量"
-              value={formatNumber(today.APPLICATION_NUM)}
-              footer={`历史总数: ${formatNumber(total.APPLICATION_NUM)}`}
-            />
-          </Col>
-          <Col xs={12} md={4}>
-            <MetricCard
-              title="日活跃用户"
-              value={formatNumber(today.USER_COUNT)}
-              footer={`历史用户数: ${formatNumber(total.USER_COUNT)}`}
-            />
-          </Col>
-          <Col xs={12} md={4}>
-            <MetricCard
-              title="日活跃设备"
-              value={formatNumber(today.DEVICE_NUM)}
-              footer={`历史设备数: ${formatNumber(total.DEVICE_NUM)}`}
-            />
-          </Col>
-          <Col xs={12} md={4}>
-            <MetricCard
-              title="日活跃会话"
-              value={formatNumber(today.SESSION_UNM)}
-              footer={`历史会话数: ${formatNumber(total.SESSION_UNM)}`}
-            />
-          </Col>
-          <Col xs={12} md={4}>
-            <MetricCard
-              title="日点击量"
-              value={formatNumber(today.CLICK_NUM)}
-              footer={`历史点击量: ${formatNumber(total.CLICK_NUM)}`}
-            />
-          </Col>
-          <Col xs={12} md={4}>
-            <MetricCard
-              title="日浏览PV"
-              value={formatNumber(today.PV_NUM)}
-              footer={`历史浏览数: ${formatNumber(total.PV_NUM)}`}
-            />
-          </Col>
-        </Row>
-      </Skeleton>
+      <Row gutter={[16, 16]}>
+        <Col xs={12} md={4}>
+          <MetricCard
+            title="应用数量"
+            loading={loading}
+            value={formatNumber(today.APPLICATION_NUM)}
+            footer={`历史总数: ${formatNumber(total.APPLICATION_NUM)}`}
+          />
+        </Col>
+        <Col xs={12} md={4}>
+          <MetricCard
+            title="日活跃用户"
+            loading={loading}
+            value={formatNumber(today.USER_COUNT)}
+            footer={`历史用户数: ${formatNumber(total.USER_COUNT)}`}
+          />
+        </Col>
+        <Col xs={12} md={4}>
+          <MetricCard
+            title="日活跃设备"
+            loading={loading}
+            value={formatNumber(today.DEVICE_NUM)}
+            footer={`历史设备数: ${formatNumber(total.DEVICE_NUM)}`}
+          />
+        </Col>
+        <Col xs={12} md={4}>
+          <MetricCard
+            title="日活跃会话"
+            loading={loading}
+            value={formatNumber(today.SESSION_UNM)}
+            footer={`历史会话数: ${formatNumber(total.SESSION_UNM)}`}
+          />
+        </Col>
+        <Col xs={12} md={4}>
+          <MetricCard
+            title="日点击量"
+            loading={loading}
+            value={formatNumber(today.CLICK_NUM)}
+            footer={`历史点击量: ${formatNumber(total.CLICK_NUM)}`}
+          />
+        </Col>
+        <Col xs={12} md={4}>
+          <MetricCard
+            title="日浏览PV"
+            loading={loading}
+            value={formatNumber(today.PV_NUM)}
+            footer={`历史浏览数: ${formatNumber(total.PV_NUM)}`}
+          />
+        </Col>
+      </Row>
       <Card title="应用访问趋势" style={{ marginTop: 16 }} loading={loading}>
         <EChart option={chartOption} height={420} />
       </Card>
