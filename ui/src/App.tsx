@@ -11,7 +11,7 @@ import ApplicationMonitor from "./pages/ApplicationMonitor";
 import UserManagement from "./pages/UserManagement";
 import UserBehaviorAnalysis from "./pages/UserBehaviorAnalysis";
 import ListingTableDemo from "./pages/ListingTableDemo";
-import { WebTracingProvider } from "web-tracing-react";
+import { WebTracingProvider } from "@web-tracing/react";
 
 function Placeholder() {
   return <div>功能开发中</div>;

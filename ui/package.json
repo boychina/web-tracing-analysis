@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
-    "web-tracing-react": "^2.1.0",
+    "@web-tracing/react": "^2.1.1",
     "antd": "^6.1.0",
     "axios": "^1.7.0",
     "echarts": "^5.5.0",
