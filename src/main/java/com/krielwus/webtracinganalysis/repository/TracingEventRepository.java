@@ -73,6 +73,38 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
             + "ORDER BY day ASC", nativeQuery = true)
     java.util.List<Object[]> countDailyPvByApp(@Param("start") Date start, @Param("end") Date end);
 
+    /** 按天统计事件类型（全量） */
+    @Query(value = "SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day, COUNT(*) AS cnt\n"
+            + "FROM trace_event\n"
+            + "WHERE event_type = :eventType AND created_at BETWEEN :start AND :end\n"
+            + "GROUP BY day\n"
+            + "ORDER BY day ASC", nativeQuery = true)
+    java.util.List<Object[]> countDailyByEventType(@Param("eventType") String eventType, @Param("start") Date start, @Param("end") Date end);
+
+    /** 按天按应用统计事件类型（全量） */
+    @Query(value = "SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day, app_code AS code, COUNT(*) AS cnt\n"
+            + "FROM trace_event\n"
+            + "WHERE event_type = :eventType AND created_at BETWEEN :start AND :end\n"
+            + "GROUP BY day, code\n"
+            + "ORDER BY day ASC", nativeQuery = true)
+    java.util.List<Object[]> countDailyByEventTypeByApp(@Param("eventType") String eventType, @Param("start") Date start, @Param("end") Date end);
+
+    /** 按天统计事件类型（限定 appCodes） */
+    @Query(value = "SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day, COUNT(*) AS cnt\n"
+            + "FROM trace_event\n"
+            + "WHERE event_type = :eventType AND created_at BETWEEN :start AND :end AND app_code IN (:appCodes)\n"
+            + "GROUP BY day\n"
+            + "ORDER BY day ASC", nativeQuery = true)
+    java.util.List<Object[]> countDailyByEventTypeAndAppCodes(@Param("eventType") String eventType, @Param("start") Date start, @Param("end") Date end, @Param("appCodes") java.util.Set<String> appCodes);
+
+    /** 按天按应用统计事件类型（限定 appCodes） */
+    @Query(value = "SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day, app_code AS code, COUNT(*) AS cnt\n"
+            + "FROM trace_event\n"
+            + "WHERE event_type = :eventType AND created_at BETWEEN :start AND :end AND app_code IN (:appCodes)\n"
+            + "GROUP BY day, code\n"
+            + "ORDER BY day ASC", nativeQuery = true)
+    java.util.List<Object[]> countDailyByEventTypeByAppAndAppCodes(@Param("eventType") String eventType, @Param("start") Date start, @Param("end") Date end, @Param("appCodes") java.util.Set<String> appCodes);
+
     /** 统计指定应用代码集合的PV数量 */
     @Query(value = "SELECT COUNT(*) FROM trace_event WHERE event_type = :eventType AND app_code IN (:appCodes)", nativeQuery = true)
     long countByEventTypeAndAppCodes(@Param("eventType") String eventType, @Param("appCodes") java.util.Set<String> appCodes);
@@ -104,4 +136,32 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
             + "GROUP BY day, code\n"
             + "ORDER BY day ASC", nativeQuery = true)
     java.util.List<Object[]> countDailyPvByAppAndAppCodes(@Param("start") Date start, @Param("end") Date end, @Param("appCodes") java.util.Set<String> appCodes);
+
+    /** 最近事件（全量） */
+    @Query(value = "SELECT id, event_type, app_code, session_id, created_at FROM trace_event ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findRecent(@Param("limit") int limit);
+
+    /** 最近事件（限定 appCodes） */
+    @Query(value = "SELECT id, event_type, app_code, session_id, created_at FROM trace_event WHERE app_code IN :appCodes ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findRecentByAppCodes(@Param("appCodes") java.util.Set<String> appCodes, @Param("limit") int limit);
+
+    /** 最近 ERROR 事件（全量，带 payload/app_name） */
+    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findRecentErrors(@Param("limit") int limit);
+
+    /** 最近 ERROR 事件（限定 appCodes，带 payload/app_name） */
+    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' AND app_code IN (:appCodes) ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findRecentErrorsByAppCodes(@Param("appCodes") java.util.Set<String> appCodes, @Param("limit") int limit);
+
+    /** 最近 ERROR 事件（指定单个 appCode，带 payload/app_name） */
+    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' AND app_code = :appCode ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findRecentErrorsByAppCode(@Param("appCode") String appCode, @Param("limit") int limit);
+
+    /** 最后一条事件时间（全量） */
+    @Query(value = "SELECT MAX(created_at) FROM trace_event", nativeQuery = true)
+    java.util.Date findMaxCreatedAt();
+
+    /** 最后一条事件时间（限定 appCodes） */
+    @Query(value = "SELECT MAX(created_at) FROM trace_event WHERE app_code IN (:appCodes)", nativeQuery = true)
+    java.util.Date findMaxCreatedAtByAppCodes(@Param("appCodes") java.util.Set<String> appCodes);
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Button, Card, Col, Row, Select, message } from "antd";
-import { useNavigate } from "react-router-dom";
+import { Button, Card, Col, Row, Select, Table, Tag, Tooltip, message } from "antd";
+import dayjs from "dayjs";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import client from "../api/client";
 import EChart from "../components/EChart";
 import MetricCard from "../components/MetricCard";
@@ -35,6 +36,21 @@ type DailyItem = {
   PV_NUM: number;
 };
 
+type UvItem = {
+  DATETIME: string;
+  COUNT: number;
+};
+
+type ErrorItem = {
+  ID?: number;
+  ERROR_CODE?: string;
+  MESSAGE?: string;
+  PAYLOAD?: string;
+  SEVERITY?: string;
+  REQUEST_URI?: string;
+  CREATED_AT?: string | number;
+};
+
 type PagePvItem = {
   PAGE_URL: string;
   PV_NUM: number;
@@ -58,15 +74,52 @@ function buildRangeDates(n: number) {
   return result.reverse();
 }
 
+function renderSeverity(severity?: string) {
+  if (!severity) return <Tag>未分级</Tag>;
+  const upper = severity.toUpperCase();
+  if (upper.includes("CRIT") || upper.includes("FATAL") || upper.includes("SEV")) {
+    return <Tag color="red">{severity}</Tag>;
+  }
+  if (upper.includes("WARN")) return <Tag color="gold">{severity}</Tag>;
+  if (upper.includes("INFO")) return <Tag color="blue">{severity}</Tag>;
+  return <Tag>{severity}</Tag>;
+}
+
+function renderErrorMessage(row: ErrorItem) {
+  const content = row.PAYLOAD || row.MESSAGE || "--";
+  const text = typeof content === "string" ? content : JSON.stringify(content);
+  return (
+    <Tooltip placement="topLeft" title={text} overlayStyle={{ maxWidth: 600 }}>
+      <div
+        style={{
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+          wordBreak: "break-all",
+          whiteSpace: "pre-wrap",
+        }}
+      >
+        {text || "--"}
+      </div>
+    </Tooltip>
+  );
+}
+
 function ApplicationMonitor() {
   const [apps, setApps] = useState<AppItem[]>([]);
   const [currentApp, setCurrentApp] = useState<string>();
   const [dailyBase, setDailyBase] = useState<DailyBase | null>(null);
   const [allBase, setAllBase] = useState<AllBase | null>(null);
   const [dailyList, setDailyList] = useState<DailyItem[]>([]);
+  const [uvList, setUvList] = useState<UvItem[]>([]);
   const [pagePv, setPagePv] = useState<PagePvItem[]>([]);
+  const [errorList, setErrorList] = useState<ErrorItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialAppCode = searchParams.get("appCode")?.trim();
 
   useEffect(() => {
     loadApps();
@@ -79,7 +132,13 @@ function ApplicationMonitor() {
         const list = resp.data.data as AppItem[];
         setApps(list);
         if (list.length > 0) {
-          const code = list[0].appCode;
+          let code = list[0].appCode;
+          if (initialAppCode) {
+            const target = list.find((it) => it.appCode === initialAppCode);
+            if (target) {
+              code = target.appCode;
+            }
+          }
           setCurrentApp(code);
           refresh(code);
         }
@@ -93,7 +152,7 @@ function ApplicationMonitor() {
     setLoading(true);
     try {
       const dates = buildRangeDates(7);
-      const [dailyResp, allResp, dailyPvResp, weeklyPageResp] =
+      const [dailyResp, allResp, dailyPvResp, dailyUvResp, weeklyPageResp] =
         await Promise.all([
           client.get("/application/monitor/dailyBase", {
             params: { appCode },
@@ -102,6 +161,11 @@ function ApplicationMonitor() {
             params: { appCode },
           }),
           client.post("/application/monitor/dailyPV", {
+            appCode,
+            startDate: dates[0],
+            endDate: dates[dates.length - 1],
+          }),
+          client.post("/application/monitor/dailyUV", {
             appCode,
             startDate: dates[0],
             endDate: dates[dates.length - 1],
@@ -141,12 +205,42 @@ function ApplicationMonitor() {
         setDailyList([]);
       }
 
+      if (dailyUvResp.data && dailyUvResp.data.code === 1000) {
+        const list = dailyUvResp.data.data as UvItem[];
+        const mapped = dates.map((date) => {
+          const found = list.find((it) => it.DATETIME === date);
+          return {
+            DATETIME: date,
+            COUNT: found ? found.COUNT : 0,
+          };
+        });
+        setUvList(mapped);
+      } else {
+        setUvList([]);
+      }
+
       if (weeklyPageResp.data && weeklyPageResp.data.code === 1000) {
         let items = weeklyPageResp.data.data as PagePvItem[];
         items = items.slice(0, 10);
         setPagePv(items);
       } else {
         setPagePv([]);
+      }
+
+      try {
+        setTableLoading(true);
+        const errorResp = await client.get("/application/monitor/errors/recent", {
+          params: { appCode, limit: 20 },
+        });
+        if (errorResp.data && errorResp.data.code === 1000) {
+          setErrorList(errorResp.data.data as ErrorItem[]);
+        } else {
+          setErrorList([]);
+        }
+      } catch {
+        setErrorList([]);
+      } finally {
+        setTableLoading(false);
       }
     } catch {
       message.error("加载监控数据失败");
@@ -155,7 +249,7 @@ function ApplicationMonitor() {
     }
   }
 
-  const trendOption = {
+  const pvOption = {
     grid: { left: 40, right: 20, top: 30, bottom: 40 },
     tooltip: { trigger: "axis" },
     xAxis: {
@@ -169,6 +263,24 @@ function ApplicationMonitor() {
         type: "line",
         smooth: true,
         data: dailyList.map((d) => d.PV_NUM),
+      },
+    ],
+  } as const;
+
+  const uvOption = {
+    grid: { left: 40, right: 20, top: 30, bottom: 40 },
+    tooltip: { trigger: "axis" },
+    xAxis: {
+      type: "category",
+      data: uvList.map((d) => d.DATETIME.slice(5)),
+    },
+    yAxis: { type: "value" },
+    series: [
+      {
+        name: "UV",
+        type: "line",
+        smooth: true,
+        data: uvList.map((d) => d.COUNT),
       },
     ],
   } as const;
@@ -205,6 +317,33 @@ function ApplicationMonitor() {
     ],
   } as const;
 
+  const errorColumns = [
+    {
+      title: "时间戳",
+      dataIndex: "CREATED_AT",
+      width: 180,
+      render: (v: any) => (v ? dayjs(v).format("YYYY-MM-DD HH:mm:ss") : "--"),
+    },
+    {
+      title: "错误代码",
+      dataIndex: "ERROR_CODE",
+      width: 160,
+      render: (v: any) => v || "--",
+    },
+    {
+      title: "消息",
+      dataIndex: "MESSAGE",
+      ellipsis: true,
+      render: (_: any, row: ErrorItem) => renderErrorMessage(row),
+    },
+    {
+      title: "严重程度",
+      dataIndex: "SEVERITY",
+      width: 120,
+      render: (v: any) => renderSeverity(v),
+    },
+  ];
+
   return (
     <div>
       <Card style={{ marginBottom: 16 }}>
@@ -238,7 +377,7 @@ function ApplicationMonitor() {
         <Col xs={24} md={4}>
           <MetricCard
             loading={loading}
-            title="日活跃用户"
+            title="日活跃用户（DAU）"
             value={dailyBase ? dailyBase.USER_COUNT : 0}
             footer={`历史用户数: ${allBase ? allBase.USER_COUNT : 0}`}
           />
@@ -270,7 +409,7 @@ function ApplicationMonitor() {
         <Col xs={24} md={4}>
           <MetricCard
             loading={loading}
-            title="日浏览PV"
+            title="页面访问量（PV）"
             value={dailyBase ? dailyBase.PV_NUM : 0}
             footer={`历史浏览数: ${allBase ? allBase.PV_NUM : 0}`}
           />
@@ -286,16 +425,34 @@ function ApplicationMonitor() {
       </Row>
       <Row gutter={16} style={{ marginTop: 16 }}>
         <Col span={12}>
-          <Card title="本周访问趋势" loading={loading}>
-            <EChart option={trendOption} height={360} />
+          <Card title="PV 趋势" loading={loading}>
+            <EChart option={pvOption} height={360} />
           </Card>
         </Col>
+        <Col span={12}>
+          <Card title="UV 趋势" loading={loading}>
+            <EChart option={uvOption} height={360} />
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={16} style={{ marginTop: 16 }}>
         <Col span={12}>
           <Card title="本周各页面 PV" loading={loading}>
             <EChart option={pagePvOption} height={360} />
           </Card>
         </Col>
       </Row>
+
+      <Card title="近期错误" style={{ marginTop: 16 }}>
+        <Table
+          rowKey={(row) => String(row.ID || row.CREATED_AT)}
+          loading={tableLoading}
+          columns={errorColumns as any}
+          dataSource={errorList}
+          pagination={false}
+        />
+      </Card>
     </div>
   );
 }

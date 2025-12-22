@@ -82,6 +82,41 @@ public class ApplicationController {
         }
     }
 
+    @PostMapping("/monitor/dailyUV")
+    public ResultInfo monitorDailyUV(@RequestBody JSONObject body) {
+        if (body == null) { return new ResultInfo(400, "body required"); }
+        String appCode = body.getString("appCode");
+        String start = body.getString("startDate");
+        String end = body.getString("endDate");
+        if (appCode == null || appCode.trim().isEmpty()) { return new ResultInfo(400, "appCode required"); }
+        if (start == null || end == null) { return new ResultInfo(400, "startDate/endDate required"); }
+        try {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.LocalDate s = java.time.LocalDate.parse(start, fmt);
+            java.time.LocalDate e = java.time.LocalDate.parse(end, fmt);
+            if (s.isAfter(e)) { return new ResultInfo(400, "date range invalid"); }
+            java.util.List<java.util.Map<String,Object>> list = service.aggregateDailyUVForApp(s, e, appCode.trim());
+            return new ResultInfo(1000, "success", list);
+        } catch (java.time.format.DateTimeParseException ex) {
+            return new ResultInfo(400, "date format invalid"); }
+        catch (Exception ex) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
+    @GetMapping("/monitor/errors/recent")
+    public ResultInfo recentErrors(@RequestParam("appCode") String appCode,
+                                   @RequestParam(value = "limit", required = false, defaultValue = "20") Integer limit) {
+        if (appCode == null || appCode.trim().isEmpty()) { return new ResultInfo(400, "appCode required"); }
+        int l = (limit == null || limit < 1) ? 20 : limit;
+        try {
+            java.util.List<java.util.Map<String,Object>> list = service.listRecentErrorsByApp(appCode.trim(), l);
+            return new ResultInfo(1000, "success", list);
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
     @GetMapping("/monitor/weeklyPagePV")
     public ResultInfo weeklyPagePV(@RequestParam("appCode") String appCode,
                                    @RequestParam(value = "days", required = false) Integer days) {

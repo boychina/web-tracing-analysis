@@ -19,7 +19,7 @@ function Placeholder() {
 
 function App() {
   const options = {
-    dsn: "/api/trackweb",
+    dsn: "http://127.0.0.1:17001/api/trackweb",
     appName: "埋点分析平台",
     appCode: "e3b5bf27919",
     debug: true,

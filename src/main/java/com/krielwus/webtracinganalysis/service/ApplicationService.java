@@ -137,4 +137,12 @@ public class ApplicationService {
     public List<Map<String, Object>> aggregatePagePVForApp(LocalDate start, LocalDate end, String trim) {
         return tracingService.aggregatePagePVForApp(start, end, trim);
     }
+
+    public List<Map<String, Object>> aggregateDailyUVForApp(LocalDate start, LocalDate end, String appCode) {
+        return tracingService.aggregateDailyUVForApp(start, end, appCode);
+    }
+
+    public List<Map<String, Object>> listRecentErrorsByApp(String appCode, int limit) {
+        return tracingService.listRecentErrorsByApp(appCode, limit);
+    }
 }

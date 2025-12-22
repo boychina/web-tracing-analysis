@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.*;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 
 /**
@@ -228,24 +229,39 @@ public class TracingService {
     }
 
     /**
-     * 统计指定日期的基础指标（基于 trace_event）。
+     * 统计指定日期的基础指标（优先基线表 base_info_record 以获得 user/device/session 更准确计数）。
      */
     public Map<String, Object> aggregateDailyBase(LocalDate date) {
         Date start = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
-        int appCount = (int) tracingEventRepository.countDistinctAppCodeBetween(start, end);
-        int userCount = (int) tracingEventRepository.countDistinctSdkUserUuidBetween(start, end);
-        int deviceCount = (int) tracingEventRepository.countDistinctDeviceIdBetween(start, end);
-        int sessionCount = (int) tracingEventRepository.countDistinctSessionIdBetween(start, end);
+
+        java.util.List<BaseInfoRecord> records = baseInfoRecordRepository.findByCreatedAtBetween(start, end);
+        Set<String> apps = new HashSet<>();
+        Set<String> users = new HashSet<>();
+        Set<String> devices = new HashSet<>();
+        Set<String> sessions = new HashSet<>();
+        for (BaseInfoRecord r : records) {
+            Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
+            if (m == null) continue;
+            String appCode = getString(m, "appCode", "APP_CODE");
+            if (appCode != null && !appCode.isEmpty()) apps.add(appCode);
+            String uid = getString(m, "sdkUserUuid");
+            if (uid != null && !uid.isEmpty()) users.add(uid);
+            String deviceId = getString(m, "deviceId", "DEVICE_ID");
+            if (deviceId != null && !deviceId.isEmpty()) devices.add(deviceId);
+            String sessionId = getString(m, "sessionId", "SESSION_ID");
+            if (sessionId != null && !sessionId.isEmpty()) sessions.add(sessionId);
+        }
+
         int pv = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetween("PV", start, end);
         int click = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetween("CLICK", start, end);
         int error = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetween("ERROR", start, end);
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("DAY_TIME", DF.format(date));
-        item.put("APPLICATION_NUM", appCount);
-        item.put("USER_COUNT", userCount);
-        item.put("DEVICE_NUM", deviceCount);
-        item.put("SESSION_UNM", sessionCount);
+        item.put("APPLICATION_NUM", apps.size());
+        item.put("USER_COUNT", users.size());
+        item.put("DEVICE_NUM", devices.size());
+        item.put("SESSION_UNM", sessions.size());
         item.put("CLICK_NUM", click);
         item.put("PV_NUM", pv);
         item.put("ERROR_NUM", error);
@@ -253,16 +269,13 @@ public class TracingService {
     }
 
     /**
-     * 统计指定用户有权限的应用的基础指标（基于 trace_event）。
+     * 统计指定用户有权限的应用的基础指标（优先基线表 base_info_record 以获得 user/device/session 更准确计数）。
      */
     public Map<String, Object> aggregateDailyBaseForUser(LocalDate date, String userId, String username) {
         Date start = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
         
-        // 获取用户有权限的应用代码
         Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
-        
-        // 如果没有权限访问任何应用，返回空数据
         if (userAppCodes.isEmpty()) {
             Map<String, Object> emptyItem = new LinkedHashMap<>();
             emptyItem.put("DAY_TIME", DF.format(date));
@@ -275,21 +288,35 @@ public class TracingService {
             emptyItem.put("ERROR_NUM", 0);
             return emptyItem;
         }
-        
-        int appCount = (int) tracingEventRepository.countDistinctAppCodeBetweenAndAppCodes(start, end, userAppCodes);
-        int userCount = (int) tracingEventRepository.countDistinctSdkUserUuidBetweenAndAppCodes(start, end, userAppCodes);
-        int deviceCount = (int) tracingEventRepository.countDistinctDeviceIdBetweenAndAppCodes(start, end, userAppCodes);
-        int sessionCount = (int) tracingEventRepository.countDistinctSessionIdBetweenAndAppCodes(start, end, userAppCodes);
+
+        java.util.List<BaseInfoRecord> records = baseInfoRecordRepository.findByCreatedAtBetween(start, end);
+        Set<String> apps = new HashSet<>();
+        Set<String> users = new HashSet<>();
+        Set<String> devices = new HashSet<>();
+        Set<String> sessions = new HashSet<>();
+        for (BaseInfoRecord r : records) {
+            Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
+            if (m == null) continue;
+            String appCode = getString(m, "appCode", "APP_CODE");
+            if (appCode == null || appCode.isEmpty() || !userAppCodes.contains(appCode)) continue;
+            apps.add(appCode);
+            String uid = getString(m, "sdkUserUuid");
+            if (uid != null && !uid.isEmpty()) users.add(uid);
+            String deviceId = getString(m, "deviceId", "DEVICE_ID");
+            if (deviceId != null && !deviceId.isEmpty()) devices.add(deviceId);
+            String sessionId = getString(m, "sessionId", "SESSION_ID");
+            if (sessionId != null && !sessionId.isEmpty()) sessions.add(sessionId);
+        }
         int pv = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetweenAndAppCodes("PV", start, end, userAppCodes);
         int click = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetweenAndAppCodes("CLICK", start, end, userAppCodes);
         int error = (int) tracingEventRepository.countByEventTypeAndCreatedAtBetweenAndAppCodes("ERROR", start, end, userAppCodes);
         
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("DAY_TIME", DF.format(date));
-        item.put("APPLICATION_NUM", userAppCodes.size());
-        item.put("USER_COUNT", userCount);
-        item.put("DEVICE_NUM", deviceCount);
-        item.put("SESSION_UNM", sessionCount);
+        item.put("APPLICATION_NUM", apps.size());
+        item.put("USER_COUNT", users.size());
+        item.put("DEVICE_NUM", devices.size());
+        item.put("SESSION_UNM", sessions.size());
         item.put("CLICK_NUM", click);
         item.put("PV_NUM", pv);
         item.put("ERROR_NUM", error);
@@ -436,6 +463,304 @@ public class TracingService {
     }
 
     /**
+     * 按日统计指定事件类型的总量（限定用户权限）。
+     */
+    public List<Map<String, Object>> aggregateDailyCountByEventTypeForUser(LocalDate startDate, LocalDate endDate, String eventType, String userId, String username) {
+        Date rangeStart = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date rangeEnd = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+        List<Object[]> rows;
+        if (userAppCodes.isEmpty()) {
+            rows = new ArrayList<>();
+        } else {
+            rows = tracingEventRepository.countDailyByEventTypeAndAppCodes(eventType, rangeStart, rangeEnd, userAppCodes);
+        }
+        Map<String, Integer> dayCount = new HashMap<>();
+        for (Object[] r : rows) {
+            String day = String.valueOf(r[0]);
+            int cnt = ((Number) r[1]).intValue();
+            dayCount.put(day, cnt);
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            String day = DF.format(d);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("DATETIME", day);
+            row.put("COUNT", dayCount.getOrDefault(day, 0));
+            out.add(row);
+        }
+        return out;
+    }
+
+    /**
+     * 按日按应用统计指定事件类型的总量（限定用户权限）。
+     */
+    public List<Map<String, Object>> aggregateDailyCountByEventTypeByAppForUser(LocalDate startDate, LocalDate endDate, String eventType, String userId, String username) {
+        Date rangeStart = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date rangeEnd = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+        List<Object[]> rows;
+        if (userAppCodes.isEmpty()) {
+            rows = new ArrayList<>();
+        } else {
+            rows = tracingEventRepository.countDailyByEventTypeByAppAndAppCodes(eventType, rangeStart, rangeEnd, userAppCodes);
+        }
+        Map<String, String> nameByCode = new HashMap<>();
+        for (com.krielwus.webtracinganalysis.entity.ApplicationInfo ai : applicationInfoRepository.findAll()) {
+            if (ai.getAppCode() != null && !ai.getAppCode().isEmpty() && userAppCodes.contains(ai.getAppCode())) {
+                nameByCode.put(ai.getAppCode(), ai.getAppName() == null ? ai.getAppCode() : ai.getAppName());
+            }
+        }
+        Set<String> allCodes = new HashSet<>(userAppCodes);
+        Map<String, Map<String, Integer>> countMap = new HashMap<>();
+        for (Object[] r : rows) {
+            String day = String.valueOf(r[0]);
+            String code = String.valueOf(r[1]);
+            int cnt = ((Number) r[2]).intValue();
+            allCodes.add(code);
+            countMap.computeIfAbsent(day, k -> new HashMap<>()).put(code, cnt);
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            String day = DF.format(d);
+            Map<String, Integer> byCode = countMap.getOrDefault(day, Collections.emptyMap());
+            for (String code : allCodes) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("APP_CODE", code);
+                row.put("APP_NAME", nameByCode.getOrDefault(code, code));
+                row.put("DATETIME", day);
+                row.put("COUNT", byCode.getOrDefault(code, 0));
+                out.add(row);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 按日统计指定事件类型的总量（全量）。
+     */
+    public List<Map<String, Object>> aggregateDailyCountByEventType(LocalDate startDate, LocalDate endDate, String eventType) {
+        Date rangeStart = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date rangeEnd = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        List<Object[]> rows = tracingEventRepository.countDailyByEventType(eventType, rangeStart, rangeEnd);
+        Map<String, Integer> dayCount = new HashMap<>();
+        for (Object[] r : rows) {
+            String day = String.valueOf(r[0]);
+            int cnt = ((Number) r[1]).intValue();
+            dayCount.put(day, cnt);
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            String day = DF.format(d);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("DATETIME", day);
+            row.put("COUNT", dayCount.getOrDefault(day, 0));
+            out.add(row);
+        }
+        return out;
+    }
+
+    /**
+     * 按日按应用统计指定事件类型的总量（全量）。
+     */
+    public List<Map<String, Object>> aggregateDailyCountByEventTypeByApp(LocalDate startDate, LocalDate endDate, String eventType) {
+        Date rangeStart = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date rangeEnd = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        List<Object[]> rows = tracingEventRepository.countDailyByEventTypeByApp(eventType, rangeStart, rangeEnd);
+        Map<String, String> nameByCode = new HashMap<>();
+        for (com.krielwus.webtracinganalysis.entity.ApplicationInfo ai : applicationInfoRepository.findAll()) {
+            if (ai.getAppCode() != null && !ai.getAppCode().isEmpty()) {
+                nameByCode.put(ai.getAppCode(), ai.getAppName() == null ? ai.getAppCode() : ai.getAppName());
+            }
+        }
+        Set<String> allCodes = new HashSet<>();
+        Map<String, Map<String, Integer>> countMap = new HashMap<>();
+        for (Object[] r : rows) {
+            String day = String.valueOf(r[0]);
+            String code = String.valueOf(r[1]);
+            int cnt = ((Number) r[2]).intValue();
+            allCodes.add(code);
+            countMap.computeIfAbsent(day, k -> new HashMap<>()).put(code, cnt);
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            String day = DF.format(d);
+            Map<String, Integer> byCode = countMap.getOrDefault(day, Collections.emptyMap());
+            for (String code : allCodes) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("APP_CODE", code);
+                row.put("APP_NAME", nameByCode.getOrDefault(code, code));
+                row.put("DATETIME", day);
+                row.put("COUNT", byCode.getOrDefault(code, 0));
+                out.add(row);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 最近N条事件（限定用户权限）。
+     */
+    public List<Map<String, Object>> listRecentEvents(int limit, String userId, String username) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+        List<Object[]> rows;
+        if (userAppCodes.isEmpty()) {
+            rows = new ArrayList<>();
+        } else {
+            rows = tracingEventRepository.findRecentByAppCodes(userAppCodes, limit);
+        }
+        for (Object[] r : rows) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("ID", r[0]);
+            m.put("EVENT_TYPE", r[1]);
+            m.put("APP_CODE", r[2]);
+            m.put("SESSION_ID", r[3]);
+            m.put("CREATED_AT", r[4]);
+            out.add(m);
+        }
+        return out;
+    }
+
+    /**
+     * 最近N条事件（全量）。
+     */
+    public List<Map<String, Object>> listRecentEvents(int limit) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        List<Object[]> rows = tracingEventRepository.findRecent(limit);
+        for (Object[] r : rows) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("ID", r[0]);
+            m.put("EVENT_TYPE", r[1]);
+            m.put("APP_CODE", r[2]);
+            m.put("SESSION_ID", r[3]);
+            m.put("CREATED_AT", r[4]);
+            out.add(m);
+        }
+        return out;
+    }
+
+    /**
+     * 最近N条 ERROR 事件（全量）。
+     */
+    public List<Map<String, Object>> listRecentErrors(int limit) {
+        List<Object[]> rows = tracingEventRepository.findRecentErrors(limit);
+        return mapErrorRows(rows);
+    }
+
+    /**
+     * 最近N条 ERROR 事件（限定用户权限）。
+     */
+    public List<Map<String, Object>> listRecentErrors(int limit, String userId, String username) {
+        Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+        if (userAppCodes.isEmpty()) return Collections.emptyList();
+        List<Object[]> rows = tracingEventRepository.findRecentErrorsByAppCodes(userAppCodes, limit);
+        return mapErrorRows(rows);
+    }
+
+    /**
+     * 最近N条 ERROR 事件（指定单个应用）。
+     */
+    public List<Map<String, Object>> listRecentErrorsByApp(String appCode, int limit) {
+        if (appCode == null || appCode.trim().isEmpty()) return Collections.emptyList();
+        List<Object[]> rows = tracingEventRepository.findRecentErrorsByAppCode(appCode.trim(), limit);
+        return mapErrorRows(rows);
+    }
+
+    /**
+     * 将查询结果映射为错误列表。
+     */
+    private List<Map<String, Object>> mapErrorRows(List<Object[]> rows) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Object[] r : rows) {
+            String payloadStr = r[5] == null ? null : String.valueOf(r[5]);
+            Map<String, Object> payload = payloadStr == null
+                    ? null
+                    : fromJson(payloadStr, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("ID", r[0]);
+            m.put("EVENT_TYPE", r[1]);
+            m.put("APP_CODE", r[2]);
+            m.put("APP_NAME", r[3]);
+            m.put("SESSION_ID", r[4]);
+            m.put("CREATED_AT", r[6]);
+            m.put("ERROR_CODE", getString(payload, "errorCode", "ERROR_CODE", "code", "CODE"));
+            m.put("MESSAGE", getString(payload, "message", "MESSAGE", "msg", "MSG", "errorMsg", "ERROR_MSG"));
+            m.put("SEVERITY", getString(payload, "severity", "SEVERITY", "level", "LEVEL"));
+            m.put("REQUEST_URI", getString(payload, "requestUri", "REQUEST_URI", "url", "URL"));
+            m.put("PAYLOAD", payloadStr);
+            out.add(m);
+        }
+        return out;
+    }
+
+    /**
+     * 状态看板（今日）：基础指标 + 数据延迟分钟 + 状态标记。
+     */
+    public Map<String, Object> statusBoard(LocalDate today, String userId, String username, boolean superAdmin) {
+        Map<String, Object> base;
+        if (superAdmin) {
+            base = aggregateDailyBase(today);
+        } else {
+            base = aggregateDailyBaseForUser(today, userId, username);
+        }
+        // 数据延迟：最后一条事件时间到现在的分钟差
+        Date latest;
+        if (superAdmin) {
+            latest = tracingEventRepository.findMaxCreatedAt();
+        } else {
+            Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+            latest = userAppCodes.isEmpty() ? null : tracingEventRepository.findMaxCreatedAtByAppCodes(userAppCodes);
+        }
+        long delayMinutes = 9999;
+        if (latest != null) {
+            delayMinutes = Duration.between(latest.toInstant(), new Date().toInstant()).toMinutes();
+            if (delayMinutes < 0) delayMinutes = 0;
+        }
+        String statusFlag;
+        if (latest == null) {
+            statusFlag = "NO_DATA";
+        } else if (delayMinutes <= 15) {
+            statusFlag = "OK";
+        } else {
+            statusFlag = "LAG";
+        }
+        base.put("DELAY_MINUTES", delayMinutes);
+        base.put("STATUS", statusFlag);
+        return base;
+    }
+
+    /**
+     * 模拟埋点验证：写入一条PV事件。
+     */
+    public Map<String, Object> simulateVerifyEvent(String appCode, String userId, String username) {
+        // superAdmin 判定：传入 userId/username 均为空时视为超级管理员调用
+        boolean superAdmin = (userId == null && username == null);
+        Set<String> userAppCodes = superAdmin ? Collections.emptySet() : getUserAccessibleAppCodes(userId, username);
+        if (appCode == null || appCode.trim().isEmpty()) {
+            throw new IllegalArgumentException("appCode required");
+        }
+        String trimmed = appCode.trim();
+        if (!superAdmin && (userAppCodes.isEmpty() || !userAppCodes.contains(trimmed))) {
+            throw new IllegalArgumentException("forbidden");
+        }
+        TracingEvent e = new TracingEvent();
+        e.setEventType("PV");
+        e.setAppCode(trimmed);
+        e.setAppName(trimmed);
+        e.setSessionId("verify-session");
+        // 简单payload
+        e.setPayload("{\"requestUri\":\"/verify/ping\",\"sdkUserUuid\":\"verify-user\"}");
+        tracingEventRepository.save(e);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("APP_CODE", trimmed);
+        out.put("EVENT_TYPE", "PV");
+        out.put("REQUEST_URI", "/verify/ping");
+        out.put("CREATED_AT", e.getCreatedAt());
+        return out;
+    }
+
+    /**
      * 按应用（appCode）统计日期范围内每日 PV 数，并返回 appCode 与 appName。
      */
     public List<Map<String, Object>> aggregateDailyPVByApp(LocalDate startDate, LocalDate endDate) {
@@ -476,17 +801,30 @@ public class TracingService {
     public Map<String, Object> aggregateDailyBaseByApp(String appCode, LocalDate date) {
         Date start = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(date.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
-        int userCount = (int) tracingEventRepository.countDistinctSdkUserUuidForAppBetween(appCode, start, end);
-        int deviceCount = (int) tracingEventRepository.countDistinctDeviceIdForAppBetween(appCode, start, end);
-        int sessionCount = (int) tracingEventRepository.countDistinctSessionIdForAppBetween(appCode, start, end);
+        java.util.List<BaseInfoRecord> records = baseInfoRecordRepository.findByCreatedAtBetween(start, end);
+        Set<String> users = new HashSet<>();
+        Set<String> devices = new HashSet<>();
+        Set<String> sessions = new HashSet<>();
+        for (BaseInfoRecord r : records) {
+            Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
+            if (m == null) continue;
+            String code = getString(m, "appCode", "APP_CODE");
+            if (code == null || code.isEmpty() || !code.equals(appCode)) continue;
+            String uid = getString(m, "sdkUserUuid");
+            if (uid != null && !uid.isEmpty()) users.add(uid);
+            String deviceId = getString(m, "deviceId", "DEVICE_ID");
+            if (deviceId != null && !deviceId.isEmpty()) devices.add(deviceId);
+            String sessionId = getString(m, "sessionId", "SESSION_ID");
+            if (sessionId != null && !sessionId.isEmpty()) sessions.add(sessionId);
+        }
         int pv = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("PV", appCode, start, end);
         int click = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("CLICK", appCode, start, end);
         int error = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("ERROR", appCode, start, end);
         Map<String, Object> item = new LinkedHashMap<>();
         item.put("DAY_TIME", DF.format(date));
-        item.put("USER_COUNT", userCount);
-        item.put("DEVICE_NUM", deviceCount);
-        item.put("SESSION_UNM", sessionCount);
+        item.put("USER_COUNT", users.size());
+        item.put("DEVICE_NUM", devices.size());
+        item.put("SESSION_UNM", sessions.size());
         item.put("CLICK_NUM", click);
         item.put("PV_NUM", pv);
         item.put("ERROR_NUM", error);
@@ -509,6 +847,191 @@ public class TracingService {
         item.put("PV_NUM", pv);
         item.put("ERROR_NUM", error);
         return item;
+    }
+
+    /**
+     * 按日统计 UV（全量，基于基线表去重 sdkUserUuid）。
+     */
+    public List<Map<String, Object>> aggregateDailyUV(LocalDate startDate, LocalDate endDate) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            Date start = Date.from(d.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            Date end = Date.from(d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+            java.util.List<BaseInfoRecord> records = baseInfoRecordRepository.findByCreatedAtBetween(start, end);
+            Set<String> users = new HashSet<>();
+            for (BaseInfoRecord r : records) {
+                Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
+                if (m == null) continue;
+                String uid = getString(m, "sdkUserUuid", "SDK_USER_UUID");
+                if (uid != null && !uid.isEmpty()) users.add(uid);
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("DATETIME", DF.format(d));
+            row.put("COUNT", users.size());
+            out.add(row);
+        }
+        return out;
+    }
+
+    /**
+     * 按日统计 UV（限定用户权限，基于基线表）。
+     */
+    public List<Map<String, Object>> aggregateDailyUVForUser(LocalDate startDate, LocalDate endDate, String userId, String username) {
+        Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            if (userAppCodes.isEmpty()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("DATETIME", DF.format(d));
+                row.put("COUNT", 0);
+                out.add(row);
+                continue;
+            }
+            Date start = Date.from(d.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            Date end = Date.from(d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+            java.util.List<BaseInfoRecord> records = baseInfoRecordRepository.findByCreatedAtBetween(start, end);
+            Set<String> users = new HashSet<>();
+            for (BaseInfoRecord r : records) {
+                Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
+                if (m == null) continue;
+                String appCode = getString(m, "appCode", "APP_CODE");
+                if (appCode == null || !userAppCodes.contains(appCode)) continue;
+                String uid = getString(m, "sdkUserUuid", "SDK_USER_UUID");
+                if (uid != null && !uid.isEmpty()) users.add(uid);
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("DATETIME", DF.format(d));
+            row.put("COUNT", users.size());
+            out.add(row);
+        }
+        return out;
+    }
+
+    /**
+     * 按日按应用统计 UV（全量，基于基线表去重 sdkUserUuid）。
+     */
+    public List<Map<String, Object>> aggregateDailyUVByApp(LocalDate startDate, LocalDate endDate) {
+        Date rangeStart = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date rangeEnd = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        java.util.List<BaseInfoRecord> records = baseInfoRecordRepository.findByCreatedAtBetween(rangeStart, rangeEnd);
+
+        Map<String, String> nameByCode = new HashMap<>();
+        for (com.krielwus.webtracinganalysis.entity.ApplicationInfo ai : applicationInfoRepository.findAll()) {
+            if (ai.getAppCode() != null && !ai.getAppCode().isEmpty()) {
+                nameByCode.put(ai.getAppCode(), ai.getAppName() == null ? ai.getAppCode() : ai.getAppName());
+            }
+        }
+
+        Set<String> allCodes = new HashSet<>();
+        Map<String, Map<String, Set<String>>> dayUserByCode = new HashMap<>();
+        for (BaseInfoRecord r : records) {
+            String day = DF.format(r.getCreatedAt().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
+            Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
+            if (m == null) continue;
+            String code = getString(m, "appCode", "APP_CODE");
+            String uid = getString(m, "sdkUserUuid", "SDK_USER_UUID");
+            if (code == null || code.isEmpty() || uid == null || uid.isEmpty()) continue;
+            allCodes.add(code);
+            dayUserByCode
+                    .computeIfAbsent(day, k -> new HashMap<>())
+                    .computeIfAbsent(code, k -> new HashSet<>())
+                    .add(uid);
+        }
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            String day = DF.format(d);
+            Map<String, Set<String>> byCode = dayUserByCode.getOrDefault(day, Collections.emptyMap());
+            for (String code : allCodes) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("APP_CODE", code);
+                row.put("APP_NAME", nameByCode.getOrDefault(code, code));
+                row.put("DATETIME", day);
+                row.put("COUNT", byCode.getOrDefault(code, Collections.emptySet()).size());
+                out.add(row);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 按日按应用统计 UV（限定用户权限，基于基线表去重 sdkUserUuid）。
+     */
+    public List<Map<String, Object>> aggregateDailyUVByAppForUser(LocalDate startDate, LocalDate endDate, String userId, String username) {
+        Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+        if (userAppCodes.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Date rangeStart = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date rangeEnd = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        java.util.List<BaseInfoRecord> records = baseInfoRecordRepository.findByCreatedAtBetween(rangeStart, rangeEnd);
+
+        Map<String, String> nameByCode = new HashMap<>();
+        for (com.krielwus.webtracinganalysis.entity.ApplicationInfo ai : applicationInfoRepository.findAll()) {
+            if (ai.getAppCode() != null && !ai.getAppCode().isEmpty() && userAppCodes.contains(ai.getAppCode())) {
+                nameByCode.put(ai.getAppCode(), ai.getAppName() == null ? ai.getAppCode() : ai.getAppName());
+            }
+        }
+
+        Set<String> allCodes = new HashSet<>(userAppCodes);
+        Map<String, Map<String, Set<String>>> dayUserByCode = new HashMap<>();
+        for (BaseInfoRecord r : records) {
+            String day = DF.format(r.getCreatedAt().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
+            Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
+            if (m == null) continue;
+            String code = getString(m, "appCode", "APP_CODE");
+            if (code == null || code.isEmpty() || !userAppCodes.contains(code)) continue;
+            String uid = getString(m, "sdkUserUuid", "SDK_USER_UUID");
+            if (uid == null || uid.isEmpty()) continue;
+            dayUserByCode
+                    .computeIfAbsent(day, k -> new HashMap<>())
+                    .computeIfAbsent(code, k -> new HashSet<>())
+                    .add(uid);
+        }
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            String day = DF.format(d);
+            Map<String, Set<String>> byCode = dayUserByCode.getOrDefault(day, Collections.emptyMap());
+            for (String code : allCodes) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("APP_CODE", code);
+                row.put("APP_NAME", nameByCode.getOrDefault(code, code));
+                row.put("DATETIME", day);
+                row.put("COUNT", byCode.getOrDefault(code, Collections.emptySet()).size());
+                out.add(row);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 按日统计应用 UV（基于基线表）。
+     */
+    public List<Map<String, Object>> aggregateDailyUVForApp(LocalDate startDate, LocalDate endDate, String appCode) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (appCode == null || appCode.trim().isEmpty()) return out;
+        String trimmed = appCode.trim();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            Date start = Date.from(d.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            Date end = Date.from(d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+            java.util.List<BaseInfoRecord> records = baseInfoRecordRepository.findByCreatedAtBetween(start, end);
+            Set<String> users = new HashSet<>();
+            for (BaseInfoRecord r : records) {
+                Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
+                if (m == null) continue;
+                String code = getString(m, "appCode", "APP_CODE");
+                if (code == null || !trimmed.equals(code)) continue;
+                String uid = getString(m, "sdkUserUuid", "SDK_USER_UUID");
+                if (uid != null && !uid.isEmpty()) users.add(uid);
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("APP_CODE", trimmed);
+            row.put("DATETIME", DF.format(d));
+            row.put("COUNT", users.size());
+            out.add(row);
+        }
+        return out;
     }
 
     public List<Map<String, Object>> aggregateDailyPVForApp(LocalDate startDate, LocalDate endDate, String appCode) {
