@@ -11,6 +11,7 @@ services:
 
   web-tracing-analysis:
     build: .
+    image: web-tracing-analysis
     ports:
       - "17001:17001"
     environment:
