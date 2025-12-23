@@ -33,7 +33,7 @@ function Login() {
   return (
     <div className="login-page">
       <Card className="login-card">
-        <h1 className="login-title">WebTracing Admin</h1>
+        <h1 className="login-title">Web Tracing Analysis</h1>
         <Form<LoginFormValues> name="login" size="large" onFinish={onFinish}>
           <Form.Item
             name="username"
