@@ -72,9 +72,12 @@
   - `java -jar target/web-tracing-analysis.jar`
 
 ### 界面预览
-<img src="src/main/doc/1722353141613.jpg">
-<img src="src/main/doc/1722353211528.jpg">
-<img src="src/main/doc/1722352544969.jpg">
+<img src="src/main/doc/1722353141613.jpg" />
+<img src="src/main/doc/1722353211528.jpg" />
+<img src="src/main/doc/1722352544969.jpg" />
+
+### 应用注册数据上报
+<img src="docs/usage-process.png" />
 
 ### 压力测试
 
