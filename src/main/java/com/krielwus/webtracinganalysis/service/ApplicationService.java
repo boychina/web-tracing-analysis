@@ -145,4 +145,12 @@ public class ApplicationService {
     public List<Map<String, Object>> listRecentErrorsByApp(String appCode, int limit) {
         return tracingService.listRecentErrorsByApp(appCode, limit);
     }
+
+    public Map<String, Object> pageRecentErrorsByApp(String appCode, int pageNo, int pageSize) {
+        return tracingService.pageRecentErrorsByApp(appCode, pageNo, pageSize);
+    }
+
+    public String getErrorPayloadByApp(String appCode, long id) {
+        return tracingService.getErrorPayloadByApp(appCode, id);
+    }
 }

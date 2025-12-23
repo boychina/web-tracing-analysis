@@ -4,13 +4,13 @@ import {
   Card,
   Col,
   DatePicker,
+  Modal,
   Row,
   Segmented,
   Skeleton,
   Space,
   Table,
   Tag,
-  Tooltip,
   message,
 } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
@@ -105,7 +105,11 @@ function getPresetRange(preset: Preset): [DayjsValue, DayjsValue] {
 function renderSeverityTag(severity?: string) {
   if (!severity) return <Tag>未分级</Tag>;
   const upper = severity.toUpperCase();
-  if (upper.includes("CRIT") || upper.includes("FATAL") || upper.includes("SEV")) {
+  if (
+    upper.includes("CRIT") ||
+    upper.includes("FATAL") ||
+    upper.includes("SEV")
+  ) {
     return <Tag color="red">{severity}</Tag>;
   }
   if (upper.includes("WARN")) {
@@ -115,6 +119,72 @@ function renderSeverityTag(severity?: string) {
     return <Tag color="blue">{severity}</Tag>;
   }
   return <Tag>{severity}</Tag>;
+}
+
+function parsePayload(raw?: string) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function getPayloadField(row: ErrorItem, field: string) {
+  const payload = parsePayload(row.PAYLOAD);
+  if (payload && typeof payload === "object" && field in payload) {
+    const v = (payload as any)[field];
+    if (v == null) return "";
+    return typeof v === "string" ? v : JSON.stringify(v);
+  }
+  return "";
+}
+
+async function showErrorDetail(row: ErrorItem) {
+  const id = row.ID;
+  let raw = row.PAYLOAD;
+  if (!raw) {
+    if (!id) {
+      message.info("暂无错误详情");
+      return;
+    }
+    try {
+      const resp = await client.get("/webTrack/errors/detail", {
+        params: { id, appCode: row.APP_CODE },
+      });
+      if (resp.data?.code === 1000 && resp.data.data?.PAYLOAD) {
+        raw = String(resp.data.data.PAYLOAD);
+      } else {
+        message.error(resp.data?.msg || "查询错误详情失败");
+        return;
+      }
+    } catch {
+      message.error("查询错误详情失败");
+      return;
+    }
+  }
+
+  let content = raw;
+  const payload = parsePayload(raw);
+  if (payload != null) {
+    content = JSON.stringify(payload, null, 2);
+  }
+  Modal.info({
+    title: "错误详情",
+    width: 720,
+    content: (
+      <pre
+        style={{
+          maxHeight: 520,
+          overflow: "auto",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-all",
+        }}
+      >
+        {content}
+      </pre>
+    ),
+  });
 }
 
 function AnalysisDashboard() {
@@ -219,7 +289,10 @@ function AnalysisDashboard() {
       } else {
         setUvTrend([]);
       }
-      if (uvByAppResp.data?.code === 1000 && Array.isArray(uvByAppResp.data.data)) {
+      if (
+        uvByAppResp.data?.code === 1000 &&
+        Array.isArray(uvByAppResp.data.data)
+      ) {
         setUvByApp(uvByAppResp.data.data as TrendPoint[]);
       } else {
         setUvByApp([]);
@@ -231,10 +304,12 @@ function AnalysisDashboard() {
     }
   }, []);
 
-  const loadErrorList = useCallback(async (limit = 20) => {
+  const loadErrorList = useCallback(async (limit = 10) => {
     setErrorListLoading(true);
     try {
-      const resp = await client.get("/webTrack/errors/recent", { params: { limit } });
+      const resp = await client.get("/webTrack/errors/recent", {
+        params: { limit },
+      });
       if (resp.data?.code === 1000 && Array.isArray(resp.data.data)) {
         setErrorList(resp.data.data as ErrorItem[]);
       } else {
@@ -329,7 +404,10 @@ function AnalysisDashboard() {
     const totalMap = new Map<string, number>();
     for (const item of uvTrend) {
       if (!item.DATETIME) continue;
-      totalMap.set(item.DATETIME, typeof item.COUNT === "number" ? item.COUNT : 0);
+      totalMap.set(
+        item.DATETIME,
+        typeof item.COUNT === "number" ? item.COUNT : 0
+      );
     }
 
     const nameByCode: Record<string, string> = {};
@@ -518,27 +596,6 @@ function AnalysisDashboard() {
     </Space>
   );
 
-  const renderErrorMessage = (_: any, row: ErrorItem) => {
-    const content = row.PAYLOAD || row.MESSAGE || "--";
-    const text = typeof content === "string" ? content : JSON.stringify(content);
-    return (
-      <Tooltip placement="topLeft" title={text} overlayStyle={{ maxWidth: 600 }}>
-        <div
-          style={{
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-            wordBreak: "break-all",
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {text || "--"}
-        </div>
-      </Tooltip>
-    );
-  };
-
   const errorColumns = [
     {
       title: "时间戳",
@@ -554,7 +611,11 @@ function AnalysisDashboard() {
         row.APP_CODE ? (
           <a
             onClick={() =>
-              navigate(`/application/monitor?appCode=${encodeURIComponent(row.APP_CODE as string)}`)
+              navigate(
+                `/application/monitor?appCode=${encodeURIComponent(
+                  row.APP_CODE as string
+                )}`
+              )
             }
           >
             {`${row.APP_NAME || row.APP_CODE} (${row.APP_CODE})`}
@@ -567,19 +628,31 @@ function AnalysisDashboard() {
       title: "错误代码",
       dataIndex: "ERROR_CODE",
       width: 160,
-      render: (v: any) => v || "--",
+      render: (_: any, row: ErrorItem) =>
+        getPayloadField(row, "eventId") || row.ERROR_CODE || "--",
     },
     {
       title: "消息",
       dataIndex: "MESSAGE",
-      ellipsis: true,
-      render: renderErrorMessage,
+      ellipsis: { showTitle: false },
+      render: (_: any, row: ErrorItem) =>
+        getPayloadField(row, "errMessage") || row.MESSAGE || "--",
     },
     {
       title: "严重程度",
       dataIndex: "SEVERITY",
       width: 120,
       render: (v: any) => renderSeverityTag(v),
+    },
+    {
+      title: "操作",
+      key: "action",
+      width: 120,
+      render: (_: any, row: ErrorItem) => (
+        <Button type="link" onClick={() => showErrorDetail(row)}>
+          错误详情
+        </Button>
+      ),
     },
   ];
 
@@ -671,7 +744,9 @@ function AnalysisDashboard() {
 
       <Card title="近期错误" bodyStyle={{ paddingTop: 0 }}>
         <Table
-          rowKey={(row) => String(row.ID || `${row.APP_CODE}-${row.CREATED_AT}`)}
+          rowKey={(row) =>
+            String(row.ID || `${row.APP_CODE}-${row.CREATED_AT}`)
+          }
           loading={errorListLoading}
           columns={errorColumns as any}
           dataSource={errorList}

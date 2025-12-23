@@ -106,12 +106,36 @@ public class ApplicationController {
 
     @GetMapping("/monitor/errors/recent")
     public ResultInfo recentErrors(@RequestParam("appCode") String appCode,
+                                   @RequestParam(value = "pageNo", required = false) Integer pageNo,
+                                   @RequestParam(value = "pageSize", required = false) Integer pageSize,
                                    @RequestParam(value = "limit", required = false, defaultValue = "20") Integer limit) {
         if (appCode == null || appCode.trim().isEmpty()) { return new ResultInfo(400, "appCode required"); }
-        int l = (limit == null || limit < 1) ? 20 : limit;
         try {
+            if (pageNo != null || pageSize != null) {
+                int p = pageNo == null ? 1 : pageNo;
+                int s = pageSize == null ? 20 : pageSize;
+                java.util.Map<String,Object> data = service.pageRecentErrorsByApp(appCode.trim(), p, s);
+                return new ResultInfo(1000, "success", data);
+            }
+            int l = (limit == null || limit < 1) ? 20 : limit;
             java.util.List<java.util.Map<String,Object>> list = service.listRecentErrorsByApp(appCode.trim(), l);
             return new ResultInfo(1000, "success", list);
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
+    @GetMapping("/monitor/errors/detail")
+    public ResultInfo errorDetail(@RequestParam("appCode") String appCode,
+                                  @RequestParam("id") Long id) {
+        if (appCode == null || appCode.trim().isEmpty()) { return new ResultInfo(400, "appCode required"); }
+        if (id == null || id < 1) { return new ResultInfo(400, "id required"); }
+        try {
+            String payload = service.getErrorPayloadByApp(appCode.trim(), id);
+            if (payload == null) { return new ResultInfo(404, "not found"); }
+            java.util.Map<String,Object> data = new java.util.LinkedHashMap<>();
+            data.put("PAYLOAD", payload);
+            return new ResultInfo(1000, "success", data);
         } catch (Exception e) {
             return new ResultInfo(500, "internal error");
         }

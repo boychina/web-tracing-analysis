@@ -300,6 +300,32 @@ public class WebTrackController {
         return new ResultInfo(1000, "success", list);
     }
 
+    @GetMapping("/errors/detail")
+    public ResultInfo errorDetail(@RequestParam("id") Long id,
+                                  @RequestParam(value = "appCode", required = false) String appCode,
+                                  javax.servlet.http.HttpSession session) {
+        if (id == null || id < 1) return new ResultInfo(400, "id required");
+        Object roleObj = session.getAttribute("role");
+        String role = roleObj != null ? String.valueOf(roleObj) : null;
+        try {
+            String payload;
+            if ("SUPER_ADMIN".equals(role)) {
+                payload = tracingService.getErrorPayload(id);
+            } else {
+                if (appCode == null || appCode.trim().isEmpty()) {
+                    return new ResultInfo(400, "appCode required");
+                }
+                payload = tracingService.getErrorPayloadByApp(appCode.trim(), id);
+            }
+            if (payload == null) return new ResultInfo(404, "not found");
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("PAYLOAD", payload);
+            return new ResultInfo(1000, "success", data);
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
     /**
      * 一键数据验证：写入一条PV测试事件。
      */

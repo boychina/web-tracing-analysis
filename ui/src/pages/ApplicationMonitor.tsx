@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
-import { Button, Card, Col, Row, Select, Table, Tag, Tooltip, message } from "antd";
+import {
+  Button,
+  Card,
+  Col,
+  Modal,
+  Row,
+  Select,
+  Table,
+  Tag,
+  message,
+} from "antd";
 import dayjs from "dayjs";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import client from "../api/client";
@@ -43,6 +53,8 @@ type UvItem = {
 
 type ErrorItem = {
   ID?: number;
+  APP_CODE?: string;
+  APP_NAME?: string;
   ERROR_CODE?: string;
   MESSAGE?: string;
   PAYLOAD?: string;
@@ -77,7 +89,11 @@ function buildRangeDates(n: number) {
 function renderSeverity(severity?: string) {
   if (!severity) return <Tag>未分级</Tag>;
   const upper = severity.toUpperCase();
-  if (upper.includes("CRIT") || upper.includes("FATAL") || upper.includes("SEV")) {
+  if (
+    upper.includes("CRIT") ||
+    upper.includes("FATAL") ||
+    upper.includes("SEV")
+  ) {
     return <Tag color="red">{severity}</Tag>;
   }
   if (upper.includes("WARN")) return <Tag color="gold">{severity}</Tag>;
@@ -85,25 +101,70 @@ function renderSeverity(severity?: string) {
   return <Tag>{severity}</Tag>;
 }
 
-function renderErrorMessage(row: ErrorItem) {
-  const content = row.PAYLOAD || row.MESSAGE || "--";
-  const text = typeof content === "string" ? content : JSON.stringify(content);
-  return (
-    <Tooltip placement="topLeft" title={text} overlayStyle={{ maxWidth: 600 }}>
-      <div
+function parsePayload(raw?: string) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function getPayloadField(row: ErrorItem, field: string) {
+  const payload = parsePayload(row.PAYLOAD);
+  if (payload && typeof payload === "object" && field in payload) {
+    const v = (payload as any)[field];
+    if (v == null) return "";
+    return typeof v === "string" ? v : JSON.stringify(v);
+  }
+  return "";
+}
+
+async function showErrorDetail(row: ErrorItem, appCode?: string) {
+  const id = row.ID;
+  let raw = row.PAYLOAD;
+  if (!raw) {
+    if (!id || !appCode) {
+      message.info("暂无错误详情");
+      return;
+    }
+    try {
+      const resp = await client.get("/application/monitor/errors/detail", {
+        params: { appCode, id },
+      });
+      if (resp.data?.code === 1000 && resp.data.data?.PAYLOAD) {
+        raw = String(resp.data.data.PAYLOAD);
+      } else {
+        message.error(resp.data?.msg || "查询错误详情失败");
+        return;
+      }
+    } catch {
+      message.error("查询错误详情失败");
+      return;
+    }
+  }
+
+  let content = raw;
+  const payload = parsePayload(raw);
+  if (payload != null) {
+    content = JSON.stringify(payload, null, 2);
+  }
+  Modal.info({
+    title: "错误详情",
+    width: 720,
+    content: (
+      <pre
         style={{
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-          wordBreak: "break-all",
+          maxHeight: 520,
+          overflow: "auto",
           whiteSpace: "pre-wrap",
+          wordBreak: "break-all",
         }}
       >
-        {text || "--"}
-      </div>
-    </Tooltip>
-  );
+        {content}
+      </pre>
+    ),
+  });
 }
 
 function ApplicationMonitor() {
@@ -117,6 +178,9 @@ function ApplicationMonitor() {
   const [errorList, setErrorList] = useState<ErrorItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
+  const [errorPageNo, setErrorPageNo] = useState(1);
+  const [errorPageSize, setErrorPageSize] = useState(10);
+  const [errorTotal, setErrorTotal] = useState(0);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialAppCode = searchParams.get("appCode")?.trim();
@@ -145,6 +209,50 @@ function ApplicationMonitor() {
       }
     } catch {
       message.error("加载应用列表失败");
+    }
+  }
+
+  async function loadErrors(appCode: string, pageNo: number, pageSize: number) {
+    try {
+      setTableLoading(true);
+      const errorResp = await client.get("/application/monitor/errors/recent", {
+        params: { appCode, pageNo, pageSize },
+      });
+      if (errorResp.data && errorResp.data.code === 1000) {
+        const data = errorResp.data.data;
+        if (Array.isArray(data)) {
+          setErrorList(data as ErrorItem[]);
+          setErrorTotal(data.length);
+        } else if (data && Array.isArray(data.list)) {
+          setErrorList(data.list as ErrorItem[]);
+          setErrorTotal(
+            typeof data.total === "number"
+              ? data.total
+              : Number(data.total || 0)
+          );
+          setErrorPageNo(
+            typeof data.pageNo === "number"
+              ? data.pageNo
+              : Number(data.pageNo || pageNo)
+          );
+          setErrorPageSize(
+            typeof data.pageSize === "number"
+              ? data.pageSize
+              : Number(data.pageSize || pageSize)
+          );
+        } else {
+          setErrorList([]);
+          setErrorTotal(0);
+        }
+      } else {
+        setErrorList([]);
+        setErrorTotal(0);
+      }
+    } catch {
+      setErrorList([]);
+      setErrorTotal(0);
+    } finally {
+      setTableLoading(false);
     }
   }
 
@@ -227,21 +335,8 @@ function ApplicationMonitor() {
         setPagePv([]);
       }
 
-      try {
-        setTableLoading(true);
-        const errorResp = await client.get("/application/monitor/errors/recent", {
-          params: { appCode, limit: 20 },
-        });
-        if (errorResp.data && errorResp.data.code === 1000) {
-          setErrorList(errorResp.data.data as ErrorItem[]);
-        } else {
-          setErrorList([]);
-        }
-      } catch {
-        setErrorList([]);
-      } finally {
-        setTableLoading(false);
-      }
+      setErrorPageNo(1);
+      await loadErrors(appCode, 1, errorPageSize);
     } catch {
       message.error("加载监控数据失败");
     } finally {
@@ -328,19 +423,31 @@ function ApplicationMonitor() {
       title: "错误代码",
       dataIndex: "ERROR_CODE",
       width: 160,
-      render: (v: any) => v || "--",
+      render: (_: any, row: ErrorItem) =>
+        getPayloadField(row, "eventId") || row.ERROR_CODE || "--",
     },
     {
       title: "消息",
       dataIndex: "MESSAGE",
-      ellipsis: true,
-      render: (_: any, row: ErrorItem) => renderErrorMessage(row),
+      ellipsis: { showTitle: false },
+      render: (_: any, row: ErrorItem) =>
+        getPayloadField(row, "errMessage") || row.MESSAGE || "--",
     },
     {
       title: "严重程度",
       dataIndex: "SEVERITY",
       width: 120,
       render: (v: any) => renderSeverity(v),
+    },
+    {
+      title: "操作",
+      key: "action",
+      width: 120,
+      render: (_: any, row: ErrorItem) => (
+        <Button type="link" onClick={() => showErrorDetail(row, currentApp)}>
+          错误详情
+        </Button>
+      ),
     },
   ];
 
@@ -450,7 +557,21 @@ function ApplicationMonitor() {
           loading={tableLoading}
           columns={errorColumns as any}
           dataSource={errorList}
-          pagination={false}
+          pagination={{
+            current: errorPageNo,
+            pageSize: errorPageSize,
+            total: errorTotal,
+            showSizeChanger: true,
+            showTotal: (t) => `共 ${t} 条`,
+          }}
+          onChange={(p) => {
+            if (!currentApp) return;
+            const nextNo = p.current || 1;
+            const nextSize = p.pageSize || errorPageSize;
+            setErrorPageNo(nextNo);
+            setErrorPageSize(nextSize);
+            loadErrors(currentApp, nextNo, nextSize);
+          }}
         />
       </Card>
     </div>

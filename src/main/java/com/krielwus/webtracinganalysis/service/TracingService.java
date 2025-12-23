@@ -644,8 +644,8 @@ public class TracingService {
      * 最近N条 ERROR 事件（全量）。
      */
     public List<Map<String, Object>> listRecentErrors(int limit) {
-        List<Object[]> rows = tracingEventRepository.findRecentErrors(limit);
-        return mapErrorRows(rows);
+        List<Object[]> rows = tracingEventRepository.findRecentErrorsLite(limit);
+        return mapErrorLiteRows(rows);
     }
 
     /**
@@ -654,8 +654,8 @@ public class TracingService {
     public List<Map<String, Object>> listRecentErrors(int limit, String userId, String username) {
         Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
         if (userAppCodes.isEmpty()) return Collections.emptyList();
-        List<Object[]> rows = tracingEventRepository.findRecentErrorsByAppCodes(userAppCodes, limit);
-        return mapErrorRows(rows);
+        List<Object[]> rows = tracingEventRepository.findRecentErrorsLiteByAppCodes(userAppCodes, limit);
+        return mapErrorLiteRows(rows);
     }
 
     /**
@@ -663,8 +663,65 @@ public class TracingService {
      */
     public List<Map<String, Object>> listRecentErrorsByApp(String appCode, int limit) {
         if (appCode == null || appCode.trim().isEmpty()) return Collections.emptyList();
-        List<Object[]> rows = tracingEventRepository.findRecentErrorsByAppCode(appCode.trim(), limit);
-        return mapErrorRows(rows);
+        List<Object[]> rows = tracingEventRepository.findRecentErrorsLiteByAppCode(appCode.trim(), limit);
+        return mapErrorLiteRows(rows);
+    }
+
+    public Map<String, Object> pageRecentErrorsByApp(String appCode, int pageNo, int pageSize) {
+        if (appCode == null || appCode.trim().isEmpty()) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("list", Collections.emptyList());
+            out.put("total", 0);
+            out.put("pageNo", 1);
+            out.put("pageSize", 20);
+            return out;
+        }
+        String code = appCode.trim();
+        int p = pageNo < 1 ? 1 : pageNo;
+        int s = pageSize < 1 ? 20 : Math.min(pageSize, 200);
+        long total = tracingEventRepository.countErrorsByAppCode(code);
+        long offsetLong = (long) (p - 1) * (long) s;
+        List<Map<String, Object>> list;
+        if (offsetLong > Integer.MAX_VALUE) {
+            list = Collections.emptyList();
+        } else {
+            List<Object[]> rows = tracingEventRepository.findErrorPageLiteByAppCode(code, s, (int) offsetLong);
+            list = mapErrorLiteRows(rows);
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("list", list);
+        out.put("total", total);
+        out.put("pageNo", p);
+        out.put("pageSize", s);
+        return out;
+    }
+
+    public String getErrorPayload(long id) {
+        return tracingEventRepository.findErrorPayloadById(id);
+    }
+
+    public String getErrorPayloadByApp(String appCode, long id) {
+        if (appCode == null || appCode.trim().isEmpty())
+            return null;
+        return tracingEventRepository.findErrorPayloadByIdAndAppCode(id, appCode.trim());
+    }
+
+    private List<Map<String, Object>> mapErrorLiteRows(List<Object[]> rows) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Object[] r : rows) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("ID", r[0]);
+            m.put("APP_CODE", r[1]);
+            m.put("APP_NAME", r[2]);
+            m.put("SESSION_ID", r[3]);
+            m.put("CREATED_AT", r[4]);
+            m.put("ERROR_CODE", r[5]);
+            m.put("MESSAGE", r[6]);
+            m.put("SEVERITY", r[7]);
+            m.put("REQUEST_URI", r[8]);
+            out.add(m);
+        }
+        return out;
     }
 
     /**
