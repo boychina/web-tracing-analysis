@@ -1,20 +1,13 @@
 import { useEffect, useState } from "react";
-import {
-  Button,
-  Card,
-  Col,
-  Modal,
-  Row,
-  Select,
-  Table,
-  Tag,
-  message,
-} from "antd";
+import { Button, Card, Col, Row, Select, message } from "antd";
 import dayjs from "dayjs";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import client from "../api/client";
 import EChart from "../components/EChart";
 import MetricCard from "../components/MetricCard";
+import RecentErrorsTable, {
+  type RecentErrorItem,
+} from "../components/RecentErrorsTable";
 
 type AppItem = {
   id: number;
@@ -51,17 +44,7 @@ type UvItem = {
   COUNT: number;
 };
 
-type ErrorItem = {
-  ID?: number;
-  APP_CODE?: string;
-  APP_NAME?: string;
-  ERROR_CODE?: string;
-  MESSAGE?: string;
-  PAYLOAD?: string;
-  SEVERITY?: string;
-  REQUEST_URI?: string;
-  CREATED_AT?: string | number;
-};
+type ErrorItem = RecentErrorItem;
 
 type PagePvItem = {
   PAGE_URL: string;
@@ -84,87 +67,6 @@ function buildRangeDates(n: number) {
     result.push(`${y}-${m}-${day}`);
   }
   return result.reverse();
-}
-
-function renderSeverity(severity?: string) {
-  if (!severity) return <Tag>未分级</Tag>;
-  const upper = severity.toUpperCase();
-  if (
-    upper.includes("CRIT") ||
-    upper.includes("FATAL") ||
-    upper.includes("SEV")
-  ) {
-    return <Tag color="red">{severity}</Tag>;
-  }
-  if (upper.includes("WARN")) return <Tag color="gold">{severity}</Tag>;
-  if (upper.includes("INFO")) return <Tag color="blue">{severity}</Tag>;
-  return <Tag>{severity}</Tag>;
-}
-
-function parsePayload(raw?: string) {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function getPayloadField(row: ErrorItem, field: string) {
-  const payload = parsePayload(row.PAYLOAD);
-  if (payload && typeof payload === "object" && field in payload) {
-    const v = (payload as any)[field];
-    if (v == null) return "";
-    return typeof v === "string" ? v : JSON.stringify(v);
-  }
-  return "";
-}
-
-async function showErrorDetail(row: ErrorItem, appCode?: string) {
-  const id = row.ID;
-  let raw = row.PAYLOAD;
-  if (!raw) {
-    if (!id || !appCode) {
-      message.info("暂无错误详情");
-      return;
-    }
-    try {
-      const resp = await client.get("/application/monitor/errors/detail", {
-        params: { appCode, id },
-      });
-      if (resp.data?.code === 1000 && resp.data.data?.PAYLOAD) {
-        raw = String(resp.data.data.PAYLOAD);
-      } else {
-        message.error(resp.data?.msg || "查询错误详情失败");
-        return;
-      }
-    } catch {
-      message.error("查询错误详情失败");
-      return;
-    }
-  }
-
-  let content = raw;
-  const payload = parsePayload(raw);
-  if (payload != null) {
-    content = JSON.stringify(payload, null, 2);
-  }
-  Modal.info({
-    title: "错误详情",
-    width: 720,
-    content: (
-      <pre
-        style={{
-          maxHeight: 520,
-          overflow: "auto",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-all",
-        }}
-      >
-        {content}
-      </pre>
-    ),
-  });
 }
 
 function ApplicationMonitor() {
@@ -412,45 +314,6 @@ function ApplicationMonitor() {
     ],
   } as const;
 
-  const errorColumns = [
-    {
-      title: "时间戳",
-      dataIndex: "CREATED_AT",
-      width: 180,
-      render: (v: any) => (v ? dayjs(v).format("YYYY-MM-DD HH:mm:ss") : "--"),
-    },
-    {
-      title: "错误代码",
-      dataIndex: "ERROR_CODE",
-      width: 160,
-      render: (_: any, row: ErrorItem) =>
-        getPayloadField(row, "eventId") || row.ERROR_CODE || "--",
-    },
-    {
-      title: "消息",
-      dataIndex: "MESSAGE",
-      ellipsis: { showTitle: false },
-      render: (_: any, row: ErrorItem) =>
-        getPayloadField(row, "errMessage") || row.MESSAGE || "--",
-    },
-    {
-      title: "严重程度",
-      dataIndex: "SEVERITY",
-      width: 120,
-      render: (v: any) => renderSeverity(v),
-    },
-    {
-      title: "操作",
-      key: "action",
-      width: 120,
-      render: (_: any, row: ErrorItem) => (
-        <Button type="link" onClick={() => showErrorDetail(row, currentApp)}>
-          错误详情
-        </Button>
-      ),
-    },
-  ];
-
   return (
     <div>
       <Card style={{ marginBottom: 16 }}>
@@ -552,25 +415,41 @@ function ApplicationMonitor() {
       </Row>
 
       <Card title="近期错误" style={{ marginTop: 16 }}>
-        <Table
-          rowKey={(row) => String(row.ID || row.CREATED_AT)}
+        <RecentErrorsTable
+          data={errorList}
           loading={tableLoading}
-          columns={errorColumns as any}
-          dataSource={errorList}
-          pagination={{
-            current: errorPageNo,
-            pageSize: errorPageSize,
-            total: errorTotal,
-            showSizeChanger: true,
-            showTotal: (t) => `共 ${t} 条`,
+          currentAppCode={currentApp}
+          fetchPayload={async (row) => {
+            const id = row.ID;
+            const appCode = currentApp;
+            if (!id || !appCode) return null;
+            const resp = await client.get(
+              "/application/monitor/errors/detail",
+              {
+                params: { appCode, id },
+              }
+            );
+            if (resp.data?.code === 1000 && resp.data.data?.PAYLOAD) {
+              return String(resp.data.data.PAYLOAD);
+            }
+            throw new Error(resp.data?.msg || "查询错误详情失败");
           }}
-          onChange={(p) => {
-            if (!currentApp) return;
-            const nextNo = p.current || 1;
-            const nextSize = p.pageSize || errorPageSize;
-            setErrorPageNo(nextNo);
-            setErrorPageSize(nextSize);
-            loadErrors(currentApp, nextNo, nextSize);
+          tableProps={{
+            pagination: {
+              current: errorPageNo,
+              pageSize: errorPageSize,
+              total: errorTotal,
+              showSizeChanger: true,
+              showTotal: (t) => `共 ${t} 条`,
+            },
+            onChange: (p) => {
+              if (!currentApp) return;
+              const nextNo = p.current || 1;
+              const nextSize = p.pageSize || errorPageSize;
+              setErrorPageNo(nextNo);
+              setErrorPageSize(nextSize);
+              loadErrors(currentApp, nextNo, nextSize);
+            },
           }}
         />
       </Card>
