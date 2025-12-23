@@ -1,4 +1,3 @@
-import { useLayoutEffect } from "react";
 import { ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { Routes, Route, Navigate } from "react-router-dom";
@@ -10,7 +9,6 @@ import ApplicationManagement from "./pages/ApplicationManagement";
 import ApplicationMonitor from "./pages/ApplicationMonitor";
 import UserManagement from "./pages/UserManagement";
 import UserBehaviorAnalysis from "./pages/UserBehaviorAnalysis";
-import ListingTableDemo from "./pages/ListingTableDemo";
 import { WebTracingProvider } from "@web-tracing/react";
 
 function Placeholder() {
@@ -49,7 +47,6 @@ function App() {
               element={<ApplicationMonitor />}
             />
             <Route path="user" element={<UserManagement />} />
-            <Route path="listing/table" element={<ListingTableDemo />} />
             <Route path="*" element={<Placeholder />} />
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />

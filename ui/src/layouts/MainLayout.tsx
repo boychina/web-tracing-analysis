@@ -203,11 +203,12 @@ function MainLayout() {
             </a>
           </div>
         </Layout.Header>
-        <Layout.Content style={{ padding: 24, background: "#f5f5f5" }}>
+        <Layout.Content style={{ background: "#f5f5f5" }}>
           <div
             style={{
-              height: "100%",
-              minHeight: "calc(100vh - 112px)",
+              padding: "24px",
+              height: "calc(100vh - 64px)",
+              overflow: "auto",
             }}
           >
             <Outlet key={`${location.pathname}:${refreshKey}`} />
