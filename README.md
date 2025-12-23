@@ -1,23 +1,77 @@
-## 简介
+## web-tracing-analysis
 
-基于[web-tracing](https://github.com/M-cheng-web/web-tracing)的前端分析项目，监控web前端项目性能，异常，请求，资源，路由，曝光，录屏等以及行为追踪分析。
-项目基于springBoot框架，使用maven构建,这里仅做分析展示的一种形式。
-项目仅实现了简单的数据大屏分析，仅做演示分析，不包含任何商业商业价值。仅做了简单的用户行为追踪。登陆，鉴权，菜单等都是写的静态数据，仅做演示分析。
-项目使用构建环境：
-- IDE ： IntelliJ IDEA
-- JDK ： 1.8
-- MAVEN ： 3.6
-- SPRINGBOOT ： 2.1.11.RELEASE
+基于 [web-tracing](https://github.com/M-cheng-web/web-tracing) 的 Web 前端观测与分析平台示例项目：覆盖性能、异常、请求、资源、路由、曝光、录屏与行为追踪，并提供可视化大屏与应用监控视图，帮助你快速把“采集 → 入库 → 查询 → 展示”串起来跑通。
+
+![Project Version](https://img.shields.io/badge/project-0.1.1-blue)
+![Spring Boot](https://img.shields.io/badge/springboot-2.1.11.RELEASE-brightgreen)
+![Java](https://img.shields.io/badge/java-1.8-orange)
+![Docker Image](https://img.shields.io/badge/docker-boychina%2Fweb--tracing--analysis%3Alatest-2496ED)
+
+### 项目特点
+- 一体化链路：采集 SDK → 服务端落库（JPA/MySQL）→ 指标/明细查询 → 可视化展示
+- 常见观测维度：性能、异常、请求、资源、路由、曝光、录屏、用户行为
+- 大屏与应用监控：总览数据大屏 + 应用维度的监控与最近错误列表
+- 轻量可演示：登录/鉴权/菜单使用静态数据，便于开箱体验与二次改造
+
+### 版本信息
+- 项目版本：`0.1.1`（`pom.xml`）
+- Spring Boot：`2.1.11.RELEASE`（`pom.xml`）
+- Java：`1.8`（`pom.xml`）
+- 前端：React `18` + Vite `5`（`ui/package.json`）
+- Docker 镜像：`boychina/web-tracing-analysis:latest`
+
+### 功能状态与开发计划
+
+#### 版本 1（V1）
+| 功能 | 状态 |
+| --- | --- |
+| 用户注册及角色管理（支持多角色） | [x] 已完成 |
+| 应用注册及权限管理（支持多应用） | [x] 已完成 |
+| 首页状态看板（指标 + 状态标记） | [x] 已完成 |
+| 应用访问趋势折线图（近 7 天 PV） | [x] 已完成 |
+| 应用错误上报趋势折线图（近 7 天错误数） | [x] 已完成 |
+| 数据异常提示（标注原因） | [x] 已完成（基础版） |
+| 埋点配置验证器（展示最近 10 条数据） | [ ] 规划中 |
+| 1 键数据验证按钮（模拟触发埋点） | [ ] 规划中 |
+
+#### 版本 2（V2，迭代 1：2 周内）—— 详细应用分析
+目标：让用户 1 分钟内定位问题页面，而非只看报表
+
+| 功能 | 位置 | 数据来源 | 状态 | 优先级 |
+| --- | --- | --- | --- | --- |
+| 单应用页面访问分布 | 应用分析页 | `trace_event` | [x] 已完成（页面 PV 分布） | V2 |
+| 单应用错误页面分布 | 应用分析页 | `trace_event` | [ ] 规划中 | V2 |
+| 会话路径分析（简化版） | 应用分析页 | `trace_event` | [ ] 规划中 | V2 |
+| 错误详情下钻 | 错误列表/错误详情 | `trace_event` | [ ] 进行中（已支持 payload JSON 查看） | V2 |
+
+#### 版本 3（V3，迭代 2：1 个月后）—— 用户行为深度分析
+目标：为 V1 的“数据可信”提供支撑
+
+| 功能 | 位置 | 数据来源 | 状态 | 优先级 |
+| --- | --- | --- | --- | --- |
+| 用户设备画像 | 用户分析页 | `base_info_record` | [ ] 进行中 | V3 |
+| 埋点配置历史 | 埋点管理页 | 新增日志表 | [ ] 规划中 | V3 |
+| 会话时长分析 | 应用分析页 | `trace_event` | [ ] 规划中 | V3 |
 
 ### 系统体验
-git下载项目，使用maven构建项目，然后使用idea打开项目，运行项目，[本地运行访问地址](http://127.0.0.1:17001/) http://127.0.0.1:17001/
+- 访问地址：`http://127.0.0.1:17001/`
+- 默认账号：
 
-| 账号    | 密码 |
-|-------| ------- |
+| 账号 | 密码 |
+| --- | --- |
 | admin | admin |
 
-###
+### 本地运行
+- 准备数据库：MySQL `8.x`（或使用下方 Docker 方式启动）
+- 配置环境变量（示例）：
+  - `export SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:3306/web_tracing?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true'`
+  - `export SPRING_DATASOURCE_USERNAME='root'`
+  - `export SPRING_DATASOURCE_PASSWORD='123456'`
+- 构建并启动：
+  - `mvn -DskipTests clean package`
+  - `java -jar target/web-tracing-analysis.jar`
 
+### 界面预览
 <img src="src/main/doc/1722353141613.jpg">
 <img src="src/main/doc/1722353211528.jpg">
 <img src="src/main/doc/1722352544969.jpg">
@@ -40,25 +94,37 @@ git下载项目，使用maven构建项目，然后使用idea打开项目，运�
 
 ### 容器化部署
 
-#### 使用 Docker Compose 一键部署（推荐）
-- 执行命令：
+#### 方式一：使用 Docker Compose 一键部署（推荐）
+- 启动：
   - `docker compose up -d`
-- 配置说明：
-  - `docker-compose.yml` 中应用默认连接 `mysql` 服务（服务名），数据库为 `web_tracing`
-  - 如需修改端口或参数，调整 `docker-compose.yml` 的 `ports` 与 `environment` 部分
+- 说明：
+  - 默认会启动 `mysql` 与 `web-tracing-analysis` 两个服务
+  - 服务端通过 `SPRING_DATASOURCE_*` 环境变量连接 `mysql`（服务名），默认数据库：`web_tracing`
+  - MySQL 端口映射默认是 `3307:3306`，避免和本机 MySQL 冲突
 - 验证：
-  - `docker compose ps` 查看服务状态
-  - `docker logs -f webtracing-app` 查看应用日志
-  - 浏览器访问 `http://127.0.0.1:17001/`
+  - `docker compose ps`
+  - `docker compose logs -f web-tracing-analysis`
+  - 浏览器访问：`http://127.0.0.1:17001/`
+
+#### 方式二：直接拉取镜像运行
+镜像获取路径：
+- `docker pull boychina/web-tracing-analysis:latest`
+
+最小运行示例（自建网络 + MySQL + 应用）：
+- `docker network create web-tracing-net`
+- `docker run -d --name wta-mysql --network web-tracing-net -e MYSQL_ROOT_PASSWORD=123456 -p 3307:3306 mysql:8.0`
+- `docker run -d --name web-tracing-analysis --network web-tracing-net -p 17001:17001 -e SPRING_DATASOURCE_URL='jdbc:mysql://wta-mysql:3306/web_tracing?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC&rewriteBatchedStatements=true&useServerPrepStmts=true&cachePrepStmts=true&useCursorFetch=true&defaultFetchSize=1000&allowPublicKeyRetrieval=true' -e SPRING_DATASOURCE_USERNAME=root -e SPRING_DATASOURCE_PASSWORD=123456 -e SERVER_PORT=17001 boychina/web-tracing-analysis:latest`
+- 访问：`http://127.0.0.1:17001/`
+
+常用排障：
+- `docker logs -f web-tracing-analysis`
+- 如 MySQL 镜像拉取失败或启动异常，建议改用 `mysql:8.0` / `mysql:8.4` 等稳定版本
 
 ## 许可证
 
-本项目采用Apache License 2.0许可。详情参见[LICENSE](LICENSE)文件。
+本项目采用 Apache License 2.0 许可。详情参见[LICENSE](LICENSE)文件。
 
-致谢
-===============
+## 致谢
 - [web-tracing](https://github.com/M-cheng-web/web-tracing) 为前端项目提供【 埋点、行为、性能、异常、请求、资源、路由、曝光、录屏 】监控手段。web-tracing文档地址：https://m-cheng-web.github.io/web-tracing/
-- [Pear Admin Layui](https://gitee.com/pear-admin/pear-admin-layui) Pear Admin 是一款开箱即用的前端开发模板，提供便捷快速的开发方式，延续 Admin 的设计规范。Pear Admin Layui文档地址：http://www.pearadmin.com/doc/
 - [hutool](https://gitee.com/dromara/hutool) 优秀的，开源的，小而全的Java工具类库，使Java拥有函数式语言般的优雅，让Java语言也可以“甜甜的”。
-- [JetBrains Open Source](https://www.jetbrains.com/zh-cn/opensource/?from=archery) 为项目提
----
+- [JetBrains Open Source](https://www.jetbrains.com/zh-cn/opensource/?from=archery)
