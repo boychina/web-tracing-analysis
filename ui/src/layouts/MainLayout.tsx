@@ -90,11 +90,18 @@ function MainLayout() {
         const meResp = await client.get("/user/me");
         if (!active) return;
         if (meResp.data.code !== 1000) {
+          setUser(null);
+          setMenuItems([]);
           navigate("/login", { replace: true });
           return;
         }
         setUser(meResp.data.data as UserInfo);
         setMenuItems(buildMenuItems(STATIC_MENU));
+      } catch {
+        if (!active) return;
+        setUser(null);
+        setMenuItems([]);
+        navigate("/login", { replace: true });
       } finally {
         if (active) setLoading(false);
       }
