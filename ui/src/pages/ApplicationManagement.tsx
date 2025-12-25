@@ -15,6 +15,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import client from "../api/client";
+import BuriedPointVerifyModal from "../components/BuriedPointVerifyModal";
 
 type ApplicationRow = {
   id: number;
@@ -64,6 +65,9 @@ function ApplicationManagement() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ApplicationRow | null>(null);
   const [form] = Form.useForm<AppFormValues>();
+
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyApp, setVerifyApp] = useState<ApplicationRow | null>(null);
 
   const isSuper = currentUser?.role === "SUPER_ADMIN";
   const isAdmin = currentUser?.role === "ADMIN";
@@ -158,6 +162,11 @@ function ApplicationManagement() {
     loadAll();
   }, [loadAll]);
 
+  function openVerify(row: ApplicationRow) {
+    setVerifyApp(row);
+    setVerifyOpen(true);
+  }
+
   const columns: ColumnsType<ApplicationRow> = useMemo(
     () => [
       { title: "ID", dataIndex: "id", width: 80 },
@@ -181,7 +190,7 @@ function ApplicationManagement() {
       },
       {
         title: "操作",
-        width: 200,
+        width: 260,
         render: (_, record) => {
           const ids = parseManagers(record.appManagers);
           const uid = currentUser?.id;
@@ -196,9 +205,11 @@ function ApplicationManagement() {
               allowDel = true;
             }
           }
-          if (!allowEdit && !allowDel) return null;
           return (
             <Space>
+              <Button type="link" size="small" onClick={() => openVerify(record)}>
+                埋点验证
+              </Button>
               {allowEdit && (
                 <Button
                   type="link"
@@ -358,9 +369,17 @@ function ApplicationManagement() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <BuriedPointVerifyModal
+        open={verifyOpen}
+        app={verifyApp}
+        onClose={() => {
+          setVerifyOpen(false);
+          setVerifyApp(null);
+        }}
+      />
     </Card>
   );
 }
 
 export default ApplicationManagement;
-

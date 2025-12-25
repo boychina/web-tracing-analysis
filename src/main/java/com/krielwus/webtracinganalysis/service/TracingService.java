@@ -640,6 +640,33 @@ public class TracingService {
         return out;
     }
 
+    public List<Map<String, Object>> listRecentEventsByApp(String appCode, int limit, String userId, String username) {
+        if (appCode == null || appCode.trim().isEmpty())
+            return Collections.emptyList();
+        String code = appCode.trim();
+        boolean superAdmin = (userId == null && username == null);
+        if (!superAdmin) {
+            Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+            if (userAppCodes.isEmpty() || !userAppCodes.contains(code)) {
+                throw new IllegalArgumentException("forbidden");
+            }
+        }
+        int l = limit < 1 ? 10 : Math.min(limit, 50);
+        List<Object[]> rows = tracingEventRepository.findRecentByAppCodeWithPayload(code, l);
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Object[] r : rows) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("ID", r[0]);
+            m.put("EVENT_TYPE", r[1]);
+            m.put("APP_CODE", r[2]);
+            m.put("SESSION_ID", r[3]);
+            m.put("CREATED_AT", r[4]);
+            m.put("PAYLOAD", r[5]);
+            out.add(m);
+        }
+        return out;
+    }
+
     /**
      * 最近N条 ERROR 事件（全量）。
      */

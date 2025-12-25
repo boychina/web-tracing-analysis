@@ -279,6 +279,35 @@ public class WebTrackController {
         return new ResultInfo(1000, "success", list);
     }
 
+    @GetMapping("/events/recentByApp")
+    public ResultInfo recentEventsByApp(@RequestParam("appCode") String appCode,
+                                        @RequestParam(value = "limit", required = false, defaultValue = "10") int limit,
+                                        javax.servlet.http.HttpSession session) {
+        Object userIdObj = session.getAttribute("userId");
+        Object usernameObj = session.getAttribute("username");
+        Object roleObj = session.getAttribute("role");
+        String userId = userIdObj != null ? String.valueOf(userIdObj) : null;
+        String username = usernameObj != null ? String.valueOf(usernameObj) : null;
+        String role = roleObj != null ? String.valueOf(roleObj) : null;
+        try {
+            List<Map<String, Object>> list;
+            if ("SUPER_ADMIN".equals(role)) {
+                list = tracingService.listRecentEventsByApp(appCode, limit, null, null);
+            } else {
+                list = tracingService.listRecentEventsByApp(appCode, limit, userId, username);
+            }
+            return new ResultInfo(1000, "success", list);
+        } catch (IllegalArgumentException e) {
+            String msg = e.getMessage();
+            if ("forbidden".equalsIgnoreCase(msg)) {
+                return new ResultInfo(403, "forbidden");
+            }
+            return new ResultInfo(400, msg == null ? "bad request" : msg);
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
     /**
      * 最近错误事件（默认20条）。
      */

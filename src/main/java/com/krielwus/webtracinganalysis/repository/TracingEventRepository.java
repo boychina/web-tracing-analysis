@@ -145,6 +145,10 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
     @Query(value = "SELECT id, event_type, app_code, session_id, created_at FROM trace_event WHERE app_code IN :appCodes ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
     java.util.List<Object[]> findRecentByAppCodes(@Param("appCodes") java.util.Set<String> appCodes, @Param("limit") int limit);
 
+    @Query(value = "SELECT id, event_type, app_code, session_id, created_at, payload FROM trace_event WHERE app_code = :appCode ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
+    java.util.List<Object[]> findRecentByAppCodeWithPayload(@Param("appCode") String appCode,
+                    @Param("limit") int limit);
+
     /** 最近 ERROR 事件（全量，带 payload/app_name） */
     @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
     java.util.List<Object[]> findRecentErrors(@Param("limit") int limit);
