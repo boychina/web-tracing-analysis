@@ -723,6 +723,41 @@ public class TracingService {
         return out;
     }
 
+    public Map<String, Object> pageRecentErrorsByAppWithFilters(String appCode, int pageNo, int pageSize,
+            String errorCode, String severity, String requestUri) {
+        if (appCode == null || appCode.trim().isEmpty()) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("list", Collections.emptyList());
+            out.put("total", 0);
+            out.put("pageNo", 1);
+            out.put("pageSize", 20);
+            return out;
+        }
+        String code = appCode.trim();
+        int p = pageNo < 1 ? 1 : pageNo;
+        int s = pageSize < 1 ? 20 : Math.min(pageSize, 200);
+        String ec = (errorCode == null || errorCode.trim().isEmpty()) ? null : errorCode.trim();
+        String sev = (severity == null || severity.trim().isEmpty()) ? null : severity.trim();
+        String uri = (requestUri == null || requestUri.trim().isEmpty()) ? null : requestUri.trim();
+
+        long total = tracingEventRepository.countErrorsByAppCodeWithFilters(code, ec, sev, uri);
+        long offsetLong = (long) (p - 1) * (long) s;
+        List<Map<String, Object>> list;
+        if (offsetLong > Integer.MAX_VALUE) {
+            list = Collections.emptyList();
+        } else {
+            List<Object[]> rows = tracingEventRepository.findErrorPageLiteByAppCodeWithFilters(code, ec, sev, uri, s,
+                    (int) offsetLong);
+            list = mapErrorLiteRows(rows);
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("list", list);
+        out.put("total", total);
+        out.put("pageNo", p);
+        out.put("pageSize", s);
+        return out;
+    }
+
     public String getErrorPayload(long id) {
         return tracingEventRepository.findErrorPayloadById(id);
     }
@@ -1128,6 +1163,22 @@ public class TracingService {
             row.put("APP_CODE", appCode);
             row.put("DATETIME", DF.format(d));
             row.put("PV_NUM", pv);
+            out.add(row);
+        }
+        return out;
+    }
+
+    public List<Map<String, Object>> aggregateDailyErrorForApp(LocalDate startDate, LocalDate endDate, String appCode) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            Date start = Date.from(d.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            Date end = Date.from(d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+            int cnt = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("ERROR", appCode,
+                    start, end);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("APP_CODE", appCode);
+            row.put("DATETIME", DF.format(d));
+            row.put("ERROR_NUM", cnt);
             out.add(row);
         }
         return out;

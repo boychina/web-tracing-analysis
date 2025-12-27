@@ -142,12 +142,22 @@ public class ApplicationService {
         return tracingService.aggregateDailyUVForApp(start, end, appCode);
     }
 
+    public List<Map<String, Object>> aggregateDailyErrorForApp(LocalDate start, LocalDate end, String appCode) {
+        return tracingService.aggregateDailyErrorForApp(start, end, appCode);
+    }
+
     public List<Map<String, Object>> listRecentErrorsByApp(String appCode, int limit) {
         return tracingService.listRecentErrorsByApp(appCode, limit);
     }
 
     public Map<String, Object> pageRecentErrorsByApp(String appCode, int pageNo, int pageSize) {
         return tracingService.pageRecentErrorsByApp(appCode, pageNo, pageSize);
+    }
+
+    public Map<String, Object> pageRecentErrorsByAppWithFilters(String appCode, int pageNo, int pageSize,
+            String errorCode, String severity, String requestUri) {
+        return tracingService.pageRecentErrorsByAppWithFilters(appCode, pageNo, pageSize, errorCode, severity,
+                requestUri);
     }
 
     public String getErrorPayloadByApp(String appCode, long id) {

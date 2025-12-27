@@ -104,17 +104,51 @@ public class ApplicationController {
         }
     }
 
+    @PostMapping("/monitor/dailyError")
+    public ResultInfo monitorDailyError(@RequestBody JSONObject body) {
+        if (body == null) {
+            return new ResultInfo(400, "body required");
+        }
+        String appCode = body.getString("appCode");
+        String start = body.getString("startDate");
+        String end = body.getString("endDate");
+        if (appCode == null || appCode.trim().isEmpty()) {
+            return new ResultInfo(400, "appCode required");
+        }
+        if (start == null || end == null) {
+            return new ResultInfo(400, "startDate/endDate required");
+        }
+        try {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.LocalDate s = java.time.LocalDate.parse(start, fmt);
+            java.time.LocalDate e = java.time.LocalDate.parse(end, fmt);
+            if (s.isAfter(e)) {
+                return new ResultInfo(400, "date range invalid");
+            }
+            java.util.List<java.util.Map<String, Object>> list = service.aggregateDailyErrorForApp(s, e,
+                    appCode.trim());
+            return new ResultInfo(1000, "success", list);
+        } catch (java.time.format.DateTimeParseException ex) {
+            return new ResultInfo(400, "date format invalid");
+        } catch (Exception ex) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
     @GetMapping("/monitor/errors/recent")
     public ResultInfo recentErrors(@RequestParam("appCode") String appCode,
                                    @RequestParam(value = "pageNo", required = false) Integer pageNo,
                                    @RequestParam(value = "pageSize", required = false) Integer pageSize,
+                                   @RequestParam(value = "errorCode", required = false) String errorCode,
+                                   @RequestParam(value = "severity", required = false) String severity,
+                                   @RequestParam(value = "requestUri", required = false) String requestUri,
                                    @RequestParam(value = "limit", required = false, defaultValue = "20") Integer limit) {
         if (appCode == null || appCode.trim().isEmpty()) { return new ResultInfo(400, "appCode required"); }
         try {
             if (pageNo != null || pageSize != null) {
                 int p = pageNo == null ? 1 : pageNo;
                 int s = pageSize == null ? 20 : pageSize;
-                java.util.Map<String,Object> data = service.pageRecentErrorsByApp(appCode.trim(), p, s);
+                java.util.Map<String,Object> data = service.pageRecentErrorsByAppWithFilters(appCode.trim(), p, s, errorCode, severity, requestUri);
                 return new ResultInfo(1000, "success", data);
             }
             int l = (limit == null || limit < 1) ? 20 : limit;
@@ -143,14 +177,29 @@ public class ApplicationController {
 
     @GetMapping("/monitor/weeklyPagePV")
     public ResultInfo weeklyPagePV(@RequestParam("appCode") String appCode,
-                                   @RequestParam(value = "days", required = false) Integer days) {
+            @RequestParam(value = "days", required = false) Integer days,
+            @RequestParam(value = "startDate", required = false) String startDate,
+            @RequestParam(value = "endDate", required = false) String endDate) {
         if (appCode == null || appCode.trim().isEmpty()) { return new ResultInfo(400, "appCode required"); }
-        int d = (days == null || days < 1) ? 7 : days;
         try {
-            java.time.LocalDate end = java.time.LocalDate.now();
-            java.time.LocalDate start = end.minusDays(d - 1);
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.LocalDate end;
+            java.time.LocalDate start;
+            if (startDate != null && endDate != null) {
+                start = java.time.LocalDate.parse(startDate, fmt);
+                end = java.time.LocalDate.parse(endDate, fmt);
+                if (start.isAfter(end)) {
+                    return new ResultInfo(400, "date range invalid");
+                }
+            } else {
+                int d = (days == null || days < 1) ? 7 : days;
+                end = java.time.LocalDate.now();
+                start = end.minusDays(d - 1);
+            }
             java.util.List<java.util.Map<String,Object>> list = service.aggregatePagePVForApp(start, end, appCode.trim());
             return new ResultInfo(1000, "success", list);
+        } catch (java.time.format.DateTimeParseException ex) {
+            return new ResultInfo(400, "date format invalid");
         } catch (Exception e) {
             return new ResultInfo(500, "internal error");
         }

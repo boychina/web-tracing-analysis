@@ -198,6 +198,18 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
     @Query(value = "SELECT COUNT(*) FROM trace_event FORCE INDEX (idx_appcode_created_at) WHERE app_code = :appCode AND event_type = 'ERROR'", nativeQuery = true)
     long countErrorsByAppCode(@Param("appCode") String appCode);
 
+    @Query(value = "SELECT COUNT(*)\n"
+                    + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
+                    + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
+                    + "AND (:errorCode IS NULL OR :errorCode = '' OR JSON_UNQUOTE(JSON_EXTRACT(payload, '$.eventId')) = :errorCode)\n"
+                    + "AND (:severity IS NULL OR :severity = '' OR JSON_UNQUOTE(JSON_EXTRACT(payload, '$.severity')) = :severity)\n"
+                    + "AND (:requestUri IS NULL OR :requestUri = '' OR JSON_UNQUOTE(JSON_EXTRACT(payload, '$.requestUri')) LIKE CONCAT('%', :requestUri, '%'))",
+            nativeQuery = true)
+    long countErrorsByAppCodeWithFilters(@Param("appCode") String appCode,
+                    @Param("errorCode") String errorCode,
+                    @Param("severity") String severity,
+                    @Param("requestUri") String requestUri);
+
     @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' AND app_code = :appCode ORDER BY created_at DESC LIMIT :limit OFFSET :offset", nativeQuery = true)
     java.util.List<Object[]> findErrorPageByAppCode(@Param("appCode") String appCode, @Param("limit") int limit,
                     @Param("offset") int offset);
@@ -213,6 +225,24 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
                     + "LIMIT :limit OFFSET :offset", nativeQuery = true)
     java.util.List<Object[]> findErrorPageLiteByAppCode(@Param("appCode") String appCode, @Param("limit") int limit,
                     @Param("offset") int offset);
+
+    @Query(value = "SELECT id, app_code, app_name, session_id, created_at,\n"
+                    + "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.eventId')) AS event_id,\n"
+                    + "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')) AS err_message,\n"
+                    + "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.severity')) AS severity,\n"
+                    + "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.requestUri')) AS request_uri\n"
+                    + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
+                    + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
+                    + "AND (:errorCode IS NULL OR :errorCode = '' OR JSON_UNQUOTE(JSON_EXTRACT(payload, '$.eventId')) = :errorCode)\n"
+                    + "AND (:severity IS NULL OR :severity = '' OR JSON_UNQUOTE(JSON_EXTRACT(payload, '$.severity')) = :severity)\n"
+                    + "AND (:requestUri IS NULL OR :requestUri = '' OR JSON_UNQUOTE(JSON_EXTRACT(payload, '$.requestUri')) LIKE CONCAT('%', :requestUri, '%'))\n"
+                    + "ORDER BY created_at DESC\n"
+                    + "LIMIT :limit OFFSET :offset", nativeQuery = true)
+    java.util.List<Object[]> findErrorPageLiteByAppCodeWithFilters(@Param("appCode") String appCode,
+                    @Param("errorCode") String errorCode,
+                    @Param("severity") String severity,
+                    @Param("requestUri") String requestUri,
+                    @Param("limit") int limit, @Param("offset") int offset);
 
     @Query(value = "SELECT payload FROM trace_event WHERE id = :id AND event_type = 'ERROR'", nativeQuery = true)
     String findErrorPayloadById(@Param("id") long id);

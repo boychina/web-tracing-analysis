@@ -110,6 +110,14 @@ export default function RecentErrorsTable(props: {
         render: (v: any) => renderSeverity(v),
       },
       {
+        title: "页面",
+        dataIndex: "REQUEST_URI",
+        width: 240,
+        ellipsis: true,
+        render: (_: any, row: RecentErrorItem) =>
+          getPayloadField(row, "requestUri") || row.REQUEST_URI || "--",
+      },
+      {
         title: "操作",
         key: "action",
         width: 120,
@@ -169,4 +177,3 @@ export default function RecentErrorsTable(props: {
     </>
   );
 }
-
