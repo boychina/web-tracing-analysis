@@ -9,9 +9,10 @@ import {
   Skeleton,
   Space,
   Tag,
+  Tooltip,
   message,
 } from "antd";
-import { ReloadOutlined } from "@ant-design/icons";
+import { InfoCircleOutlined, ReloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -587,7 +588,30 @@ function AnalysisDashboard() {
         </Col>
       </Row>
 
-      <Card title="近期错误" bodyStyle={{ paddingTop: 0 }}>
+      <Card
+        title={
+          <Space size={6} align="center">
+            <span>近期错误</span>
+            <Tooltip
+              title={
+                <div style={{ maxWidth: 380 }}>
+                  <div>CRITICAL：影响核心功能/页面不可用（白屏、ChunkLoadError、OOM 等）</div>
+                  <div>FATAL：导致流程中断或不可恢复错误（含 fatal 关键字等）</div>
+                  <div>ERROR：运行时异常、接口 5xx 等</div>
+                  <div>WARN：网络超时/失败、接口 4xx 等</div>
+                  <div>INFO：仅记录，不影响功能</div>
+                  <div style={{ marginTop: 8 }}>
+                    说明：如 payload 已上报 severity/level/errLevel 则优先使用，否则按规则自动分级。
+                  </div>
+                </div>
+              }
+            >
+              <InfoCircleOutlined />
+            </Tooltip>
+          </Space>
+        }
+        bodyStyle={{ paddingTop: 0 }}
+      >
         <RecentErrorsTable
           data={errorList}
           loading={errorListLoading}

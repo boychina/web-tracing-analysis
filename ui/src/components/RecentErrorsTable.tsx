@@ -38,8 +38,13 @@ function getPayloadField(row: RecentErrorItem, field: string) {
 function renderSeverity(severity?: string) {
   if (!severity) return <Tag>未分级</Tag>;
   const upper = severity.toUpperCase();
-  if (upper.includes("CRIT") || upper.includes("FATAL") || upper.includes("SEV"))
+  if (
+    upper.includes("CRIT") ||
+    upper.includes("FATAL") ||
+    upper.includes("SEV")
+  )
     return <Tag color="red">{severity}</Tag>;
+  if (upper.includes("ERROR")) return <Tag color="volcano">{severity}</Tag>;
   if (upper.includes("WARN")) return <Tag color="gold">{severity}</Tag>;
   if (upper.includes("INFO")) return <Tag color="blue">{severity}</Tag>;
   return <Tag>{severity}</Tag>;
@@ -115,7 +120,12 @@ export default function RecentErrorsTable(props: {
         width: 240,
         ellipsis: true,
         render: (_: any, row: RecentErrorItem) =>
-          getPayloadField(row, "requestUri") || row.REQUEST_URI || "--",
+          getPayloadField(row, "triggerPageUrl") ||
+          getPayloadField(row, "requestUri") ||
+          getPayloadField(row, "pageUrl") ||
+          getPayloadField(row, "url") ||
+          row.REQUEST_URI ||
+          "--",
       },
       {
         title: "操作",
@@ -158,7 +168,10 @@ export default function RecentErrorsTable(props: {
     <>
       <Table
         rowKey={(row) =>
-          String(row.ID || `${row.APP_CODE || props.currentAppCode}-${row.CREATED_AT}`)
+          String(
+            row.ID ||
+              `${row.APP_CODE || props.currentAppCode}-${row.CREATED_AT}`
+          )
         }
         loading={props.loading}
         columns={columns}
