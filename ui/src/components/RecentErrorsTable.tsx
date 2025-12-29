@@ -99,14 +99,24 @@ export default function RecentErrorsTable(props: {
         dataIndex: "ERROR_CODE",
         width: 160,
         render: (_: any, row: RecentErrorItem) =>
-          getPayloadField(row, "eventId") || row.ERROR_CODE || "--",
+          getPayloadField(row, "errorCode") ||
+          getPayloadField(row, "code") ||
+          getPayloadField(row, "eventId") ||
+          row.ERROR_CODE ||
+          "--",
       },
       {
         title: "消息",
         dataIndex: "MESSAGE",
         ellipsis: { showTitle: false },
         render: (_: any, row: RecentErrorItem) =>
-          getPayloadField(row, "errMessage") || row.MESSAGE || "--",
+          getPayloadField(row, "errMessage") ||
+          getPayloadField(row, "message") ||
+          getPayloadField(row, "msg") ||
+          getPayloadField(row, "errorMsg") ||
+          getPayloadField(row, "errorMessage") ||
+          row.MESSAGE ||
+          "--",
       },
       {
         title: "严重程度",

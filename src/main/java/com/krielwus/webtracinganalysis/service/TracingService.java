@@ -7,6 +7,7 @@ import com.krielwus.webtracinganalysis.entity.TracingEvent;
 import com.krielwus.webtracinganalysis.repository.BaseInfoRecordRepository;
 import com.krielwus.webtracinganalysis.repository.ApplicationInfoRepository;
 import com.krielwus.webtracinganalysis.repository.TracingEventRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -604,11 +605,12 @@ public class TracingService {
     public List<Map<String, Object>> listRecentEvents(int limit, String userId, String username) {
         List<Map<String, Object>> out = new ArrayList<>();
         Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
+        int l = limit < 1 ? 10 : Math.min(limit, 50);
         List<Object[]> rows;
         if (userAppCodes.isEmpty()) {
             rows = new ArrayList<>();
         } else {
-            rows = tracingEventRepository.findRecentByAppCodes(userAppCodes, limit);
+            rows = tracingEventRepository.findRecentByAppCodes(userAppCodes, PageRequest.of(0, l));
         }
         for (Object[] r : rows) {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -627,7 +629,8 @@ public class TracingService {
      */
     public List<Map<String, Object>> listRecentEvents(int limit) {
         List<Map<String, Object>> out = new ArrayList<>();
-        List<Object[]> rows = tracingEventRepository.findRecent(limit);
+        int l = limit < 1 ? 10 : Math.min(limit, 50);
+        List<Object[]> rows = tracingEventRepository.findRecent(PageRequest.of(0, l));
         for (Object[] r : rows) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("ID", r[0]);
@@ -652,7 +655,7 @@ public class TracingService {
             }
         }
         int l = limit < 1 ? 10 : Math.min(limit, 50);
-        List<Object[]> rows = tracingEventRepository.findRecentByAppCodeWithPayload(code, l);
+        List<Object[]> rows = tracingEventRepository.findRecentByAppCodeWithPayload(code, PageRequest.of(0, l));
         List<Map<String, Object>> out = new ArrayList<>();
         for (Object[] r : rows) {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -671,7 +674,8 @@ public class TracingService {
      * 最近N条 ERROR 事件（全量）。
      */
     public List<Map<String, Object>> listRecentErrors(int limit) {
-        List<Object[]> rows = tracingEventRepository.findRecentErrorsLite(limit);
+        int l = limit < 1 ? 10 : Math.min(limit, 200);
+        List<Object[]> rows = tracingEventRepository.findRecentErrorsLite(PageRequest.of(0, l));
         return mapErrorLiteRows(rows);
     }
 
@@ -681,7 +685,8 @@ public class TracingService {
     public List<Map<String, Object>> listRecentErrors(int limit, String userId, String username) {
         Set<String> userAppCodes = getUserAccessibleAppCodes(userId, username);
         if (userAppCodes.isEmpty()) return Collections.emptyList();
-        List<Object[]> rows = tracingEventRepository.findRecentErrorsLiteByAppCodes(userAppCodes, limit);
+        int l = limit < 1 ? 10 : Math.min(limit, 200);
+        List<Object[]> rows = tracingEventRepository.findRecentErrorsLiteByAppCodes(userAppCodes, PageRequest.of(0, l));
         return mapErrorLiteRows(rows);
     }
 
@@ -690,7 +695,9 @@ public class TracingService {
      */
     public List<Map<String, Object>> listRecentErrorsByApp(String appCode, int limit) {
         if (appCode == null || appCode.trim().isEmpty()) return Collections.emptyList();
-        List<Object[]> rows = tracingEventRepository.findRecentErrorsLiteByAppCode(appCode.trim(), limit);
+        int l = limit < 1 ? 10 : Math.min(limit, 200);
+        List<Object[]> rows = tracingEventRepository.findRecentErrorsLiteByAppCode(appCode.trim(),
+                PageRequest.of(0, l));
         return mapErrorLiteRows(rows);
     }
 
@@ -712,7 +719,7 @@ public class TracingService {
         if (offsetLong > Integer.MAX_VALUE) {
             list = Collections.emptyList();
         } else {
-            List<Object[]> rows = tracingEventRepository.findErrorPageLiteByAppCode(code, s, (int) offsetLong);
+            List<Object[]> rows = tracingEventRepository.findErrorPageLiteByAppCode(code, PageRequest.of(p - 1, s));
             list = mapErrorLiteRows(rows);
         }
         Map<String, Object> out = new LinkedHashMap<>();
@@ -746,8 +753,8 @@ public class TracingService {
         if (offsetLong > Integer.MAX_VALUE) {
             list = Collections.emptyList();
         } else {
-            List<Object[]> rows = tracingEventRepository.findErrorPageLiteByAppCodeWithFilters(code, ec, sev, uri, s,
-                    (int) offsetLong);
+            List<Object[]> rows = tracingEventRepository.findErrorPageLiteByAppCodeWithFilters(code, ec, sev, uri,
+                    PageRequest.of(p - 1, s));
             list = mapErrorLiteRows(rows);
         }
         Map<String, Object> out = new LinkedHashMap<>();

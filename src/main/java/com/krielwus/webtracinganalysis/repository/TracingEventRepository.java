@@ -1,6 +1,7 @@
 package com.krielwus.webtracinganalysis.repository;
 
 import com.krielwus.webtracinganalysis.entity.TracingEvent;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -138,32 +139,32 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
     java.util.List<Object[]> countDailyPvByAppAndAppCodes(@Param("start") Date start, @Param("end") Date end, @Param("appCodes") java.util.Set<String> appCodes);
 
     /** 最近事件（全量） */
-    @Query(value = "SELECT id, event_type, app_code, session_id, created_at FROM trace_event ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findRecent(@Param("limit") int limit);
+    @Query(value = "SELECT id, event_type, app_code, session_id, created_at FROM trace_event ORDER BY created_at DESC", nativeQuery = true)
+    java.util.List<Object[]> findRecent(Pageable pageable);
 
     /** 最近事件（限定 appCodes） */
-    @Query(value = "SELECT id, event_type, app_code, session_id, created_at FROM trace_event WHERE app_code IN :appCodes ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findRecentByAppCodes(@Param("appCodes") java.util.Set<String> appCodes, @Param("limit") int limit);
+    @Query(value = "SELECT id, event_type, app_code, session_id, created_at FROM trace_event WHERE app_code IN (:appCodes) ORDER BY created_at DESC", nativeQuery = true)
+    java.util.List<Object[]> findRecentByAppCodes(@Param("appCodes") java.util.Set<String> appCodes, Pageable pageable);
 
-    @Query(value = "SELECT id, event_type, app_code, session_id, created_at, payload FROM trace_event WHERE app_code = :appCode ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findRecentByAppCodeWithPayload(@Param("appCode") String appCode,
-                    @Param("limit") int limit);
+    @Query(value = "SELECT id, event_type, app_code, session_id, created_at, payload FROM trace_event WHERE app_code = :appCode ORDER BY created_at DESC", nativeQuery = true)
+    java.util.List<Object[]> findRecentByAppCodeWithPayload(@Param("appCode") String appCode, Pageable pageable);
 
     /** 最近 ERROR 事件（全量，带 payload/app_name） */
-    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findRecentErrors(@Param("limit") int limit);
+    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' ORDER BY created_at DESC", nativeQuery = true)
+    java.util.List<Object[]> findRecentErrors(Pageable pageable);
 
     /** 最近 ERROR 事件（限定 appCodes，带 payload/app_name） */
-    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' AND app_code IN (:appCodes) ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findRecentErrorsByAppCodes(@Param("appCodes") java.util.Set<String> appCodes, @Param("limit") int limit);
+    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' AND app_code IN (:appCodes) ORDER BY created_at DESC", nativeQuery = true)
+    java.util.List<Object[]> findRecentErrorsByAppCodes(@Param("appCodes") java.util.Set<String> appCodes,
+                    Pageable pageable);
 
     /** 最近 ERROR 事件（指定单个 appCode，带 payload/app_name） */
-    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' AND app_code = :appCode ORDER BY created_at DESC LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findRecentErrorsByAppCode(@Param("appCode") String appCode, @Param("limit") int limit);
+    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' AND app_code = :appCode ORDER BY created_at DESC", nativeQuery = true)
+    java.util.List<Object[]> findRecentErrorsByAppCode(@Param("appCode") String appCode, Pageable pageable);
 
     @Query(value = "SELECT id, app_code, app_name, session_id, created_at,\n"
-                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) AS event_id,\n"
-                    + "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')) AS err_message,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) AS event_id,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))) AS err_message,\n"
                     + "CASE\n"
                     + "  WHEN COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))), '') <> '' THEN\n"
                     + "    CASE\n"
@@ -174,39 +175,38 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
                     + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('INFO') THEN 'INFO'\n"
                     + "      ELSE UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))))\n"
                     + "    END\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%out of memory%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%heap%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%stack overflow%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%maximum call stack%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%out of memory%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%heap%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%stack overflow%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%maximum call stack%'\n"
                     + "    THEN 'CRITICAL'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%chunkloaderror%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%loading chunk%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch dynamically imported module%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%chunkloaderror%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%loading chunk%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch dynamically imported module%'\n"
                     + "    THEN 'CRITICAL'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%fatal%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%fatal%'\n"
                     + "    THEN 'FATAL'\n"
-                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(5[0-9]{2})'\n"
+                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(5[0-9]{2})'\n"
                     + "    THEN 'ERROR'\n"
-                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(4[0-9]{2})'\n"
+                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(4[0-9]{2})'\n"
                     + "    THEN 'WARN'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timeout%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timed out%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%network error%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%networkerror%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timeout%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timed out%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%network error%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%networkerror%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch%'\n"
                     + "    THEN 'WARN'\n"
                     + "  ELSE 'ERROR'\n"
                     + "END AS severity,\n"
                     + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) AS request_uri\n"
                     + "FROM trace_event\n"
                     + "WHERE event_type = 'ERROR'\n"
-                    + "ORDER BY created_at DESC\n"
-                    + "LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findRecentErrorsLite(@Param("limit") int limit);
+                    + "ORDER BY created_at DESC", nativeQuery = true)
+    java.util.List<Object[]> findRecentErrorsLite(Pageable pageable);
 
     @Query(value = "SELECT id, app_code, app_name, session_id, created_at,\n"
-                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) AS event_id,\n"
-                    + "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')) AS err_message,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) AS event_id,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))) AS err_message,\n"
                     + "CASE\n"
                     + "  WHEN COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))), '') <> '' THEN\n"
                     + "    CASE\n"
@@ -217,40 +217,39 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
                     + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('INFO') THEN 'INFO'\n"
                     + "      ELSE UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))))\n"
                     + "    END\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%out of memory%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%heap%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%stack overflow%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%maximum call stack%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%out of memory%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%heap%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%stack overflow%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%maximum call stack%'\n"
                     + "    THEN 'CRITICAL'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%chunkloaderror%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%loading chunk%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch dynamically imported module%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%chunkloaderror%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%loading chunk%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch dynamically imported module%'\n"
                     + "    THEN 'CRITICAL'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%fatal%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%fatal%'\n"
                     + "    THEN 'FATAL'\n"
-                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(5[0-9]{2})'\n"
+                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(5[0-9]{2})'\n"
                     + "    THEN 'ERROR'\n"
-                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(4[0-9]{2})'\n"
+                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(4[0-9]{2})'\n"
                     + "    THEN 'WARN'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timeout%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timed out%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%network error%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%networkerror%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timeout%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timed out%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%network error%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%networkerror%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch%'\n"
                     + "    THEN 'WARN'\n"
                     + "  ELSE 'ERROR'\n"
                     + "END AS severity,\n"
                     + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) AS request_uri\n"
                     + "FROM trace_event\n"
                     + "WHERE event_type = 'ERROR' AND app_code IN (:appCodes)\n"
-                    + "ORDER BY created_at DESC\n"
-                    + "LIMIT :limit", nativeQuery = true)
+                    + "ORDER BY created_at DESC", nativeQuery = true)
     java.util.List<Object[]> findRecentErrorsLiteByAppCodes(@Param("appCodes") java.util.Set<String> appCodes,
-                    @Param("limit") int limit);
+                    Pageable pageable);
 
     @Query(value = "SELECT id, app_code, app_name, session_id, created_at,\n"
-                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) AS event_id,\n"
-                    + "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')) AS err_message,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) AS event_id,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))) AS err_message,\n"
                     + "CASE\n"
                     + "  WHEN COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))), '') <> '' THEN\n"
                     + "    CASE\n"
@@ -261,35 +260,34 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
                     + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('INFO') THEN 'INFO'\n"
                     + "      ELSE UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))))\n"
                     + "    END\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%out of memory%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%heap%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%stack overflow%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%maximum call stack%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%out of memory%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%heap%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%stack overflow%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%maximum call stack%'\n"
                     + "    THEN 'CRITICAL'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%chunkloaderror%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%loading chunk%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch dynamically imported module%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%chunkloaderror%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%loading chunk%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch dynamically imported module%'\n"
                     + "    THEN 'CRITICAL'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%fatal%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%fatal%'\n"
                     + "    THEN 'FATAL'\n"
-                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(5[0-9]{2})'\n"
+                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(5[0-9]{2})'\n"
                     + "    THEN 'ERROR'\n"
-                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(4[0-9]{2})'\n"
+                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(4[0-9]{2})'\n"
                     + "    THEN 'WARN'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timeout%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timed out%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%network error%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%networkerror%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch%'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timeout%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timed out%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%network error%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%networkerror%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch%'\n"
                     + "    THEN 'WARN'\n"
                     + "  ELSE 'ERROR'\n"
                     + "END AS severity,\n"
                     + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) AS request_uri\n"
                     + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
                     + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
-                    + "ORDER BY created_at DESC\n"
-                    + "LIMIT :limit", nativeQuery = true)
-    java.util.List<Object[]> findRecentErrorsLiteByAppCode(@Param("appCode") String appCode, @Param("limit") int limit);
+                    + "ORDER BY created_at DESC", nativeQuery = true)
+    java.util.List<Object[]> findRecentErrorsLiteByAppCode(@Param("appCode") String appCode, Pageable pageable);
 
     @Query(value = "SELECT COUNT(*) FROM trace_event FORCE INDEX (idx_appcode_created_at) WHERE app_code = :appCode AND event_type = 'ERROR'", nativeQuery = true)
     long countErrorsByAppCode(@Param("appCode") String appCode);
@@ -297,137 +295,7 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
     @Query(value = "SELECT COUNT(*)\n"
                     + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
                     + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
-                    + "AND (:errorCode IS NULL OR :errorCode = '' OR JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) = :errorCode)\n"
-                                    + "AND (:severity IS NULL OR :severity = '' OR (\n"
-                    + "  CASE\n"
-                    + "    WHEN COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))), '') <> '' THEN\n"
-                    + "      CASE\n"
-                    + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('CRIT', 'CRITICAL') THEN 'CRITICAL'\n"
-                    + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('FATAL') THEN 'FATAL'\n"
-                    + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('ERROR', 'ERR') THEN 'ERROR'\n"
-                    + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('WARN', 'WARNING') THEN 'WARN'\n"
-                    + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('INFO') THEN 'INFO'\n"
-                    + "        ELSE UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))))\n"
-                    + "      END\n"
-                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%out of memory%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%heap%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%stack overflow%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%maximum call stack%'\n"
-                    + "      THEN 'CRITICAL'\n"
-                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%chunkloaderror%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%loading chunk%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch dynamically imported module%'\n"
-                    + "      THEN 'CRITICAL'\n"
-                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%fatal%'\n"
-                    + "      THEN 'FATAL'\n"
-                    + "    WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(5[0-9]{2})'\n"
-                    + "      THEN 'ERROR'\n"
-                    + "    WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(4[0-9]{2})'\n"
-                    + "      THEN 'WARN'\n"
-                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timeout%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timed out%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%network error%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%networkerror%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch%'\n"
-                    + "      THEN 'WARN'\n"
-                    + "    ELSE 'ERROR'\n"
-                    + "  END\n"
-                    + ") = :severity)\n"
-                    + "AND (:requestUri IS NULL OR :requestUri = '' OR JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) LIKE CONCAT('%', :requestUri, '%'))",
-            nativeQuery = true)
-    long countErrorsByAppCodeWithFilters(@Param("appCode") String appCode,
-                    @Param("errorCode") String errorCode,
-                    @Param("severity") String severity,
-                    @Param("requestUri") String requestUri);
-
-    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' AND app_code = :appCode ORDER BY created_at DESC LIMIT :limit OFFSET :offset", nativeQuery = true)
-    java.util.List<Object[]> findErrorPageByAppCode(@Param("appCode") String appCode, @Param("limit") int limit,
-                    @Param("offset") int offset);
-
-    @Query(value = "SELECT id, app_code, app_name, session_id, created_at,\n"
-                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) AS event_id,\n"
-                    + "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')) AS err_message,\n"
-                    + "CASE\n"
-                    + "  WHEN COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))), '') <> '' THEN\n"
-                    + "    CASE\n"
-                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('CRIT', 'CRITICAL') THEN 'CRITICAL'\n"
-                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('FATAL') THEN 'FATAL'\n"
-                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('ERROR', 'ERR') THEN 'ERROR'\n"
-                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('WARN', 'WARNING') THEN 'WARN'\n"
-                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('INFO') THEN 'INFO'\n"
-                    + "      ELSE UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))))\n"
-                    + "    END\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%out of memory%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%heap%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%stack overflow%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%maximum call stack%'\n"
-                    + "    THEN 'CRITICAL'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%chunkloaderror%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%loading chunk%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch dynamically imported module%'\n"
-                    + "    THEN 'CRITICAL'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%fatal%'\n"
-                    + "    THEN 'FATAL'\n"
-                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(5[0-9]{2})'\n"
-                    + "    THEN 'ERROR'\n"
-                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(4[0-9]{2})'\n"
-                    + "    THEN 'WARN'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timeout%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timed out%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%network error%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%networkerror%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch%'\n"
-                    + "    THEN 'WARN'\n"
-                    + "  ELSE 'ERROR'\n"
-                    + "END AS severity,\n"
-                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) AS request_uri\n"
-                    + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
-                    + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
-                    + "ORDER BY created_at DESC\n"
-                    + "LIMIT :limit OFFSET :offset", nativeQuery = true)
-    java.util.List<Object[]> findErrorPageLiteByAppCode(@Param("appCode") String appCode, @Param("limit") int limit,
-                    @Param("offset") int offset);
-
-    @Query(value = "SELECT id, app_code, app_name, session_id, created_at,\n"
-                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) AS event_id,\n"
-                    + "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')) AS err_message,\n"
-                    + "CASE\n"
-                    + "  WHEN COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))), '') <> '' THEN\n"
-                    + "    CASE\n"
-                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('CRIT', 'CRITICAL') THEN 'CRITICAL'\n"
-                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('FATAL') THEN 'FATAL'\n"
-                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('ERROR', 'ERR') THEN 'ERROR'\n"
-                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('WARN', 'WARNING') THEN 'WARN'\n"
-                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('INFO') THEN 'INFO'\n"
-                    + "      ELSE UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))))\n"
-                    + "    END\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%out of memory%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%heap%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%stack overflow%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%maximum call stack%'\n"
-                    + "    THEN 'CRITICAL'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%chunkloaderror%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%loading chunk%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch dynamically imported module%'\n"
-                    + "    THEN 'CRITICAL'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%fatal%'\n"
-                    + "    THEN 'FATAL'\n"
-                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(5[0-9]{2})'\n"
-                    + "    THEN 'ERROR'\n"
-                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(4[0-9]{2})'\n"
-                    + "    THEN 'WARN'\n"
-                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timeout%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timed out%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%network error%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%networkerror%'\n"
-                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch%'\n"
-                    + "    THEN 'WARN'\n"
-                    + "  ELSE 'ERROR'\n"
-                    + "END AS severity,\n"
-                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) AS request_uri\n"
-                    + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
-                    + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
-                    + "AND (:errorCode IS NULL OR :errorCode = '' OR JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) = :errorCode)\n"
+                    + "AND (:errorCode IS NULL OR :errorCode = '' OR JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) = :errorCode)\n"
                     + "AND (:severity IS NULL OR :severity = '' OR (\n"
                     + "  CASE\n"
                     + "    WHEN COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))), '') <> '' THEN\n"
@@ -439,38 +307,164 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
                     + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('INFO') THEN 'INFO'\n"
                     + "        ELSE UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))))\n"
                     + "      END\n"
-                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%out of memory%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%heap%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%stack overflow%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%maximum call stack%'\n"
+                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%out of memory%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%heap%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%stack overflow%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%maximum call stack%'\n"
                     + "      THEN 'CRITICAL'\n"
-                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%chunkloaderror%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%loading chunk%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch dynamically imported module%'\n"
+                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%chunkloaderror%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%loading chunk%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch dynamically imported module%'\n"
                     + "      THEN 'CRITICAL'\n"
-                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%fatal%'\n"
+                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%fatal%'\n"
                     + "      THEN 'FATAL'\n"
-                    + "    WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(5[0-9]{2})'\n"
+                    + "    WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(5[0-9]{2})'\n"
                     + "      THEN 'ERROR'\n"
-                    + "    WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.eventId'), JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'))) REGEXP '^(4[0-9]{2})'\n"
+                    + "    WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(4[0-9]{2})'\n"
                     + "      THEN 'WARN'\n"
-                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timeout%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%timed out%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%network error%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%networkerror%'\n"
-                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.errMessage')), '')) LIKE '%failed to fetch%'\n"
+                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timeout%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timed out%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%network error%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%networkerror%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch%'\n"
+                    + "      THEN 'WARN'\n"
+                    + "    ELSE 'ERROR'\n"
+                    + "  END\n"
+                    + ") = :severity)\n"
+                    + "AND (:requestUri IS NULL OR :requestUri = '' OR JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) LIKE CONCAT('%', :requestUri, '%'))",
+            nativeQuery = true)
+    long countErrorsByAppCodeWithFilters(@Param("appCode") String appCode,
+                    @Param("errorCode") String errorCode,
+                    @Param("severity") String severity,
+                    @Param("requestUri") String requestUri);
+
+    @Query(value = "SELECT id, event_type, app_code, app_name, session_id, payload, created_at FROM trace_event WHERE event_type = 'ERROR' AND app_code = :appCode ORDER BY created_at DESC", nativeQuery = true)
+    java.util.List<Object[]> findErrorPageByAppCode(@Param("appCode") String appCode, Pageable pageable);
+
+    @Query(value = "SELECT id, app_code, app_name, session_id, created_at,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) AS event_id,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))) AS err_message,\n"
+                    + "CASE\n"
+                    + "  WHEN COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))), '') <> '' THEN\n"
+                    + "    CASE\n"
+                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('CRIT', 'CRITICAL') THEN 'CRITICAL'\n"
+                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('FATAL') THEN 'FATAL'\n"
+                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('ERROR', 'ERR') THEN 'ERROR'\n"
+                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('WARN', 'WARNING') THEN 'WARN'\n"
+                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('INFO') THEN 'INFO'\n"
+                    + "      ELSE UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))))\n"
+                    + "    END\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%out of memory%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%heap%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%stack overflow%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%maximum call stack%'\n"
+                    + "    THEN 'CRITICAL'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%chunkloaderror%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%loading chunk%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch dynamically imported module%'\n"
+                    + "    THEN 'CRITICAL'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%fatal%'\n"
+                    + "    THEN 'FATAL'\n"
+                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(5[0-9]{2})'\n"
+                    + "    THEN 'ERROR'\n"
+                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(4[0-9]{2})'\n"
+                    + "    THEN 'WARN'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timeout%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timed out%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%network error%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%networkerror%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch%'\n"
+                    + "    THEN 'WARN'\n"
+                    + "  ELSE 'ERROR'\n"
+                    + "END AS severity,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) AS request_uri\n"
+                    + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
+                    + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
+                    + "ORDER BY created_at DESC", nativeQuery = true)
+    java.util.List<Object[]> findErrorPageLiteByAppCode(@Param("appCode") String appCode, Pageable pageable);
+
+    @Query(value = "SELECT id, app_code, app_name, session_id, created_at,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) AS event_id,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))) AS err_message,\n"
+                    + "CASE\n"
+                    + "  WHEN COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))), '') <> '' THEN\n"
+                    + "    CASE\n"
+                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('CRIT', 'CRITICAL') THEN 'CRITICAL'\n"
+                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('FATAL') THEN 'FATAL'\n"
+                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('ERROR', 'ERR') THEN 'ERROR'\n"
+                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('WARN', 'WARNING') THEN 'WARN'\n"
+                    + "      WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('INFO') THEN 'INFO'\n"
+                    + "      ELSE UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))))\n"
+                    + "    END\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%out of memory%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%heap%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%stack overflow%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%maximum call stack%'\n"
+                    + "    THEN 'CRITICAL'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%chunkloaderror%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%loading chunk%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch dynamically imported module%'\n"
+                    + "    THEN 'CRITICAL'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%fatal%'\n"
+                    + "    THEN 'FATAL'\n"
+                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(5[0-9]{2})'\n"
+                    + "    THEN 'ERROR'\n"
+                    + "  WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(4[0-9]{2})'\n"
+                    + "    THEN 'WARN'\n"
+                    + "  WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timeout%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timed out%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%network error%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%networkerror%'\n"
+                    + "    OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch%'\n"
+                    + "    THEN 'WARN'\n"
+                    + "  ELSE 'ERROR'\n"
+                    + "END AS severity,\n"
+                    + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) AS request_uri\n"
+                    + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
+                    + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
+                    + "AND (:errorCode IS NULL OR :errorCode = '' OR JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) = :errorCode)\n"
+                    + "AND (:severity IS NULL OR :severity = '' OR (\n"
+                    + "  CASE\n"
+                    + "    WHEN COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))), '') <> '' THEN\n"
+                    + "      CASE\n"
+                    + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('CRIT', 'CRITICAL') THEN 'CRITICAL'\n"
+                    + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('FATAL') THEN 'FATAL'\n"
+                    + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('ERROR', 'ERR') THEN 'ERROR'\n"
+                    + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('WARN', 'WARNING') THEN 'WARN'\n"
+                    + "        WHEN UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel')))) IN ('INFO') THEN 'INFO'\n"
+                    + "        ELSE UPPER(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.severity'), JSON_EXTRACT(payload, '$.level'), JSON_EXTRACT(payload, '$.errLevel'))))\n"
+                    + "      END\n"
+                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%out of memory%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%heap%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%stack overflow%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%maximum call stack%'\n"
+                    + "      THEN 'CRITICAL'\n"
+                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%chunkloaderror%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%loading chunk%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch dynamically imported module%'\n"
+                    + "      THEN 'CRITICAL'\n"
+                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%fatal%'\n"
+                    + "      THEN 'FATAL'\n"
+                    + "    WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(5[0-9]{2})'\n"
+                    + "      THEN 'ERROR'\n"
+                    + "    WHEN JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) REGEXP '^(4[0-9]{2})'\n"
+                    + "      THEN 'WARN'\n"
+                    + "    WHEN LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timeout%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%timed out%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%network error%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%networkerror%'\n"
+                    + "      OR LOWER(COALESCE(JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errMessage'), JSON_EXTRACT(payload, '$.message'), JSON_EXTRACT(payload, '$.msg'), JSON_EXTRACT(payload, '$.errorMsg'), JSON_EXTRACT(payload, '$.errorMessage'))), '')) LIKE '%failed to fetch%'\n"
                     + "      THEN 'WARN'\n"
                     + "    ELSE 'ERROR'\n"
                     + "  END\n"
                     + ") = :severity)\n"
                     + "AND (:requestUri IS NULL OR :requestUri = '' OR JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) LIKE CONCAT('%', :requestUri, '%'))\n"
-                    + "ORDER BY created_at DESC\n"
-                    + "LIMIT :limit OFFSET :offset", nativeQuery = true)
+                    + "ORDER BY created_at DESC", nativeQuery = true)
     java.util.List<Object[]> findErrorPageLiteByAppCodeWithFilters(@Param("appCode") String appCode,
                     @Param("errorCode") String errorCode,
                     @Param("severity") String severity,
                     @Param("requestUri") String requestUri,
-                    @Param("limit") int limit, @Param("offset") int offset);
+                    Pageable pageable);
 
     @Query(value = "SELECT payload FROM trace_event WHERE id = :id AND event_type = 'ERROR'", nativeQuery = true)
     String findErrorPayloadById(@Param("id") long id);
