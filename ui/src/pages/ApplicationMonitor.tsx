@@ -25,6 +25,8 @@ import RecentErrorsTable, {
 
 const { RangePicker } = DatePicker;
 
+const APP_CODE_STORAGE_KEY = "web-tracing-ui.applicationMonitor.appCode";
+
 type AppItem = {
   id: number;
   appName: string;
@@ -144,12 +146,28 @@ function ApplicationMonitor() {
   );
 
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialAppCode = searchParams.get("appCode")?.trim();
 
   useEffect(() => {
     loadApps();
   }, []);
+
+  function readCachedAppCode() {
+    try {
+      const v = localStorage.getItem(APP_CODE_STORAGE_KEY);
+      return v ? v.trim() : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function writeCachedAppCode(appCode: string) {
+    try {
+      if (appCode) localStorage.setItem(APP_CODE_STORAGE_KEY, appCode);
+      else localStorage.removeItem(APP_CODE_STORAGE_KEY);
+    } catch {}
+  }
 
   async function loadApps() {
     try {
@@ -158,15 +176,15 @@ function ApplicationMonitor() {
         const list = resp.data.data as AppItem[];
         setApps(list);
         if (list.length > 0) {
-          let code = list[0].appCode;
-          if (initialAppCode) {
-            const target = list.find((it) => it.appCode === initialAppCode);
-            if (target) {
-              code = target.appCode;
-            }
-          }
-          setCurrentApp(code);
-          onAppChanged(code);
+          const cached = readCachedAppCode();
+          const validFromUrl = initialAppCode
+            ? list.find((it) => it.appCode === initialAppCode)?.appCode
+            : undefined;
+          const validFromCache = cached
+            ? list.find((it) => it.appCode === cached)?.appCode
+            : undefined;
+          const code = validFromUrl || validFromCache || list[0].appCode;
+          await onAppChanged(code);
         }
       }
     } catch {
@@ -417,6 +435,16 @@ function ApplicationMonitor() {
       severity: undefined,
       requestUri: "",
     };
+    writeCachedAppCode(appCode);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (appCode) next.set("appCode", appCode);
+        else next.delete("appCode");
+        return next;
+      },
+      { replace: true }
+    );
     setCurrentApp(appCode);
     setFilterErrorCode("");
     setFilterSeverity(undefined);

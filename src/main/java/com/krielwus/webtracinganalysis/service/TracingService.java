@@ -696,8 +696,7 @@ public class TracingService {
     public List<Map<String, Object>> listRecentErrorsByApp(String appCode, int limit) {
         if (appCode == null || appCode.trim().isEmpty()) return Collections.emptyList();
         int l = limit < 1 ? 10 : Math.min(limit, 200);
-        List<Object[]> rows = tracingEventRepository.findRecentErrorsLiteByAppCode(appCode.trim(),
-                PageRequest.of(0, l));
+        List<Object[]> rows = tracingEventRepository.findRecentErrorsLiteByAppCode(appCode.trim(), PageRequest.of(0, l));
         return mapErrorLiteRows(rows);
     }
 
