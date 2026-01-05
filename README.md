@@ -2,9 +2,9 @@
 
 基于 [web-tracing](https://github.com/M-cheng-web/web-tracing) 的 Web 前端观测与分析平台示例项目：覆盖性能、异常、请求、资源、路由、曝光、录屏与行为追踪，并提供可视化大屏与应用监控视图，帮助你快速把“采集 → 入库 → 查询 → 展示”串起来跑通。
 
-![Project Version](https://img.shields.io/badge/project-0.1.1-blue)
-![Spring Boot](https://img.shields.io/badge/springboot-2.1.11.RELEASE-brightgreen)
-![Java](https://img.shields.io/badge/java-1.8-orange)
+![Project Version](https://img.shields.io/badge/project-0.2.0-blue)
+![Spring Boot](https://img.shields.io/badge/springboot-3.5.9-brightgreen)
+![Java](https://img.shields.io/badge/java-17-orange)
 ![Docker Image](https://img.shields.io/badge/docker-boychina%2Fweb--tracing--analysis%3Alatest-2496ED)
 
 ### 项目特点
@@ -14,9 +14,9 @@
 - 轻量可演示：登录/鉴权/菜单使用静态数据，便于开箱体验与二次改造
 
 ### 版本信息
-- 项目版本：`0.1.2`（`pom.xml`）
-- Spring Boot：`2.1.11.RELEASE`（`pom.xml`）
-- Java：`1.8`（`pom.xml`）
+- 项目版本：`0.2.0`（`pom.xml`）
+- Spring Boot：`3.5.9`（`pom.xml`）
+- Java：`17`（`pom.xml`）
 - 前端：React `18` + Vite `5`（`ui/package.json`）
 - Docker 镜像：`boychina/web-tracing-analysis:latest`
 
@@ -69,8 +69,13 @@
   - `export SPRING_DATASOURCE_USERNAME='root'`
   - `export SPRING_DATASOURCE_PASSWORD='123456'`
 - 构建并启动：
-  - `mvn -DskipTests clean package`
+  - `./mvnw -DskipTests clean package`
   - `java -jar target/web-tracing-analysis.jar`
+
+### 前端开发（可选）
+- 安装依赖：`pnpm -C ui install`
+- 本地启动：`pnpm -C ui dev`
+- 构建产物：`pnpm -C ui build`
 
 ### 界面预览
 <img src="src/main/doc/1722353141613.jpg" />
@@ -116,7 +121,7 @@
 
 最小运行示例（自建网络 + MySQL + 应用）：
 - `docker network create web-tracing-net`
-- `docker run -d --name wta-mysql --network web-tracing-net -e MYSQL_ROOT_PASSWORD=123456 -p 3307:3306 mysql:8.0`
+- `docker run -d --name wta-mysql --network web-tracing-net -e MYSQL_ROOT_PASSWORD=123456 -p 3307:3306 mysql:8.4`
 - `docker run -d --name web-tracing-analysis --network web-tracing-net -p 17001:17001 -e SPRING_DATASOURCE_URL='jdbc:mysql://wta-mysql:3306/web_tracing?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC&rewriteBatchedStatements=true&useServerPrepStmts=true&cachePrepStmts=true&useCursorFetch=true&defaultFetchSize=1000&allowPublicKeyRetrieval=true' -e SPRING_DATASOURCE_USERNAME=root -e SPRING_DATASOURCE_PASSWORD=123456 -e SERVER_PORT=17001 boychina/web-tracing-analysis:latest`
 - 访问：`http://127.0.0.1:17001/`
 
