@@ -4,6 +4,7 @@ import com.krielwus.webtracinganalysis.info.ResultInfo;
 import com.krielwus.webtracinganalysis.service.TracingService;
 import com.krielwus.webtracinganalysis.service.ApplicationService;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpSession;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -31,7 +32,7 @@ public class WebTrackController {
      * 当天基础指标：应用数、用户数、设备数、会话数、点击量、PV。
      */
     @GetMapping("/queryDailyBaseInfo")
-    public ResultInfo queryDailyBaseInfo(javax.servlet.http.HttpSession session) {
+    public ResultInfo queryDailyBaseInfo(HttpSession session) {
         // 获取当前用户信息
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
@@ -72,7 +73,7 @@ public class WebTrackController {
      * 历史累计指标：累计应用数、用户数、设备数、会话数、点击量、PV。
      */
     @GetMapping("/queryAllBaseInfo")
-    public ResultInfo queryAllBaseInfo(javax.servlet.http.HttpSession session) {
+    public ResultInfo queryAllBaseInfo(HttpSession session) {
         // 获取当前用户信息
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
@@ -123,7 +124,7 @@ public class WebTrackController {
      * 指定日期范围的日维度指标曲线（按应用 appCode 拆分系列，返回 appCode 与 appName）。
      */
     @PostMapping("/queryDailyInfo")
-    public ResultInfo queryDailyInfo(@RequestBody DateRangeDTO dto, javax.servlet.http.HttpSession session) {
+    public ResultInfo queryDailyInfo(@RequestBody DateRangeDTO dto, HttpSession session) {
         // 获取当前用户信息
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
@@ -158,7 +159,7 @@ public class WebTrackController {
      * 状态看板：今日基础指标 + 延迟状态。
      */
     @GetMapping("/statusBoard")
-    public ResultInfo statusBoard(javax.servlet.http.HttpSession session) {
+    public ResultInfo statusBoard(HttpSession session) {
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
         Object roleObj = session.getAttribute("role");
@@ -174,7 +175,7 @@ public class WebTrackController {
      * PV 趋势（按日汇总，总量）。
      */
     @PostMapping("/trend/pv")
-    public ResultInfo trendPv(@RequestBody DateRangeDTO dto, javax.servlet.http.HttpSession session) {
+    public ResultInfo trendPv(@RequestBody DateRangeDTO dto, HttpSession session) {
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
         Object roleObj = session.getAttribute("role");
@@ -196,7 +197,7 @@ public class WebTrackController {
      * UV 趋势（按日汇总，总量，基于基线表去重）。
      */
     @PostMapping("/trend/uv")
-    public ResultInfo trendUv(@RequestBody DateRangeDTO dto, javax.servlet.http.HttpSession session) {
+    public ResultInfo trendUv(@RequestBody DateRangeDTO dto, HttpSession session) {
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
         Object roleObj = session.getAttribute("role");
@@ -218,7 +219,7 @@ public class WebTrackController {
      * UV 趋势（按日汇总，按应用拆分，基线表去重）。
      */
     @PostMapping("/trend/uvByApp")
-    public ResultInfo trendUvByApp(@RequestBody DateRangeDTO dto, javax.servlet.http.HttpSession session) {
+    public ResultInfo trendUvByApp(@RequestBody DateRangeDTO dto, HttpSession session) {
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
         Object roleObj = session.getAttribute("role");
@@ -240,7 +241,7 @@ public class WebTrackController {
      * 错误趋势（event_type = ERROR，按日汇总，总量）。
      */
     @PostMapping("/trend/error")
-    public ResultInfo trendError(@RequestBody DateRangeDTO dto, javax.servlet.http.HttpSession session) {
+    public ResultInfo trendError(@RequestBody DateRangeDTO dto, HttpSession session) {
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
         Object roleObj = session.getAttribute("role");
@@ -263,7 +264,7 @@ public class WebTrackController {
      */
     @GetMapping("/events/recent")
     public ResultInfo recentEvents(@RequestParam(value = "limit", required = false, defaultValue = "10") int limit,
-                                   javax.servlet.http.HttpSession session) {
+            HttpSession session) {
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
         Object roleObj = session.getAttribute("role");
@@ -282,7 +283,7 @@ public class WebTrackController {
     @GetMapping("/events/recentByApp")
     public ResultInfo recentEventsByApp(@RequestParam("appCode") String appCode,
                                         @RequestParam(value = "limit", required = false, defaultValue = "10") int limit,
-                                        javax.servlet.http.HttpSession session) {
+            HttpSession session) {
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
         Object roleObj = session.getAttribute("role");
@@ -313,7 +314,7 @@ public class WebTrackController {
      */
     @GetMapping("/errors/recent")
     public ResultInfo recentErrors(@RequestParam(value = "limit", required = false, defaultValue = "20") int limit,
-                                   javax.servlet.http.HttpSession session) {
+            HttpSession session) {
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
         Object roleObj = session.getAttribute("role");
@@ -332,7 +333,7 @@ public class WebTrackController {
     @GetMapping("/errors/detail")
     public ResultInfo errorDetail(@RequestParam("id") Long id,
                                   @RequestParam(value = "appCode", required = false) String appCode,
-                                  javax.servlet.http.HttpSession session) {
+            HttpSession session) {
         if (id == null || id < 1) return new ResultInfo(400, "id required");
         Object roleObj = session.getAttribute("role");
         String role = roleObj != null ? String.valueOf(roleObj) : null;
@@ -359,7 +360,7 @@ public class WebTrackController {
      * 一键数据验证：写入一条PV测试事件。
      */
     @PostMapping("/verify")
-    public ResultInfo verify(@RequestBody Map<String, String> body, javax.servlet.http.HttpSession session) {
+    public ResultInfo verify(@RequestBody Map<String, String> body, HttpSession session) {
         Object userIdObj = session.getAttribute("userId");
         Object usernameObj = session.getAttribute("username");
         Object roleObj = session.getAttribute("role");

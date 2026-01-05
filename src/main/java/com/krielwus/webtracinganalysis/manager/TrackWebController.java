@@ -6,7 +6,7 @@ import com.krielwus.webtracinganalysis.service.TracingService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Value;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.BufferedReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;

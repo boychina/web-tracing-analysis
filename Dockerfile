@@ -1,5 +1,5 @@
 # 第一阶段：构建
-FROM maven:3.9-eclipse-temurin-8 AS build
+FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 
 # 复制 Maven 配置（关键！）
@@ -11,7 +11,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # 第二阶段：运行
-FROM eclipse-temurin:8-jre-jammy
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 # 从构建阶段复制生成的 JAR 包
 COPY --from=build /app/target/web-tracing-analysis.jar app.jar

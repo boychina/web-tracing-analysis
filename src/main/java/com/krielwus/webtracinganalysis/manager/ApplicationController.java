@@ -6,6 +6,7 @@ import com.krielwus.webtracinganalysis.entity.ApplicationInfo;
 import com.krielwus.webtracinganalysis.info.ResultInfo;
 import com.krielwus.webtracinganalysis.service.ApplicationService;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpSession;
 
 import java.util.*;
 
@@ -17,7 +18,7 @@ public class ApplicationController {
     public ApplicationController(ApplicationService service, UserAccountRepository userRepo) { this.service = service; this.userRepo = userRepo; }
 
     @GetMapping("/list")
-    public ResultInfo list(javax.servlet.http.HttpSession session) {
+    public ResultInfo list(HttpSession session) {
         com.krielwus.webtracinganalysis.entity.UserAccount u = (com.krielwus.webtracinganalysis.entity.UserAccount) session.getAttribute("user");
         String role = String.valueOf(session.getAttribute("role"));
         
@@ -206,7 +207,7 @@ public class ApplicationController {
     }
 
     @PostMapping("/create")
-    public ResultInfo create(@RequestBody JSONObject body, javax.servlet.http.HttpSession session) {
+    public ResultInfo create(@RequestBody JSONObject body, HttpSession session) {
         if (body == null) { return new ResultInfo(400, "body required"); }
         String name = body.getString("app_name");
         String prefix = body.getString("app_code_prefix");
@@ -228,7 +229,7 @@ public class ApplicationController {
     }
 
     @PostMapping("/update")
-    public ResultInfo update(@RequestBody JSONObject body, javax.servlet.http.HttpSession session) {
+    public ResultInfo update(@RequestBody JSONObject body, HttpSession session) {
         if (body == null) { return new ResultInfo(400, "body required"); }
         Long id = body.getLong("id");
         if (id == null) { return new ResultInfo(400, "id required"); }
@@ -257,7 +258,7 @@ public class ApplicationController {
     }
 
     @PostMapping("/delete")
-    public ResultInfo delete(@RequestBody JSONObject body, javax.servlet.http.HttpSession session) {
+    public ResultInfo delete(@RequestBody JSONObject body, HttpSession session) {
         if (body == null) { return new ResultInfo(400, "body required"); }
         Long id = body.getLong("id");
         if (id == null) { return new ResultInfo(400, "id required"); }
@@ -278,7 +279,7 @@ public class ApplicationController {
     }
 
     @GetMapping("/users")
-    public ResultInfo users(javax.servlet.http.HttpSession session) {
+    public ResultInfo users(HttpSession session) {
         // 获取当前用户信息
         String currentRole = String.valueOf(session.getAttribute("role"));
         

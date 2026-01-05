@@ -7,7 +7,7 @@ import com.krielwus.webtracinganalysis.repository.UserAccountRepository;
 import com.krielwus.webtracinganalysis.service.UserService;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSession;
 import java.util.*;
 
 @RestController
