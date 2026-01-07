@@ -63,7 +63,7 @@
 | admin | admin |
 
 ### 本地运行
-- 准备数据库：MySQL `8.x`（或使用下方 Docker 方式启动）
+- 准备数据库：MySQL `9.x`（或使用下方 Docker 方式启动）
 - 配置环境变量（示例）：
   - `export SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:3306/web_tracing?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true'`
   - `export SPRING_DATASOURCE_USERNAME='root'`
@@ -121,13 +121,13 @@
 
 最小运行示例（自建网络 + MySQL + 应用）：
 - `docker network create web-tracing-net`
-- `docker run -d --name wta-mysql --network web-tracing-net -e MYSQL_ROOT_PASSWORD=123456 -p 3307:3306 mysql:8.4`
+- `docker run -d --name wta-mysql --network web-tracing-net -e MYSQL_ROOT_PASSWORD=123456 -p 3307:3306 mysql:9.5.0`
 - `docker run -d --name web-tracing-analysis --network web-tracing-net -p 17001:17001 -e SPRING_DATASOURCE_URL='jdbc:mysql://wta-mysql:3306/web_tracing?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC&rewriteBatchedStatements=true&useServerPrepStmts=true&cachePrepStmts=true&useCursorFetch=true&defaultFetchSize=1000&allowPublicKeyRetrieval=true' -e SPRING_DATASOURCE_USERNAME=root -e SPRING_DATASOURCE_PASSWORD=123456 -e SERVER_PORT=17001 boychina/web-tracing-analysis:latest`
 - 访问：`http://127.0.0.1:17001/`
 
 常用排障：
 - `docker logs -f web-tracing-analysis`
-- 如 MySQL 镜像拉取失败或启动异常，建议改用 `mysql:8.0` / `mysql:8.4` 等稳定版本
+- 如 MySQL 镜像拉取失败或启动异常，建议改用 `mysql:9.5.0` / `mysql:8.4` 等稳定版本
 
 ## 许可证
 
