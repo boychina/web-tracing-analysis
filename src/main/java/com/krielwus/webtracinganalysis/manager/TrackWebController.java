@@ -24,8 +24,6 @@ import java.util.Map;
  * 兼容 XHR/sendBeacon 的 POST 上报与图片打点的 GET 上报，
  * 并提供事件列表与最新基线信息的查询，以及数据清理能力。
  */
-@CrossOrigin(originPatterns = "*", allowCredentials = "true", allowedHeaders = "*", methods = { RequestMethod.GET,
-        RequestMethod.POST, RequestMethod.OPTIONS })
 @RestController
 public class TrackWebController {
     private final TracingService tracingService;
