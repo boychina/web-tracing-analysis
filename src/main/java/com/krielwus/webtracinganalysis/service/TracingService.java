@@ -61,15 +61,17 @@ public class TracingService {
 
     @Autowired
     public TracingService(TracingEventRepository tracingEventRepository,
-                          BaseInfoRecordRepository baseInfoRecordRepository,
+                                  BaseInfoRecordRepository baseInfoRecordRepository,
                           ApplicationInfoRepository applicationInfoRepository,
                           @Lazy ApplicationService applicationService,
-                          PlatformTransactionManager transactionManager) {
+          PlatformTransactionManager transactionManager,
+          com.krielwus.webtracinganalysis.repository.PageViewRouteRepository pageViewRouteRepository) {
         this.tracingEventRepository = tracingEventRepository;
         this.baseInfoRecordRepository = baseInfoRecordRepository;
         this.applicationInfoRepository = applicationInfoRepository;
         this.applicationService = applicationService;
         this.transactionManager = transactionManager;
+        this.pageViewRouteRepository = pageViewRouteRepository;
     }
 
     @PostConstruct
@@ -122,6 +124,7 @@ public class TracingService {
         tt.execute(status -> {
             java.util.ArrayList<BaseInfoRecord> baseRecords = new java.util.ArrayList<>();
             java.util.ArrayList<TracingEvent> eventRecords = new java.util.ArrayList<>();
+            java.util.ArrayList<com.krielwus.webtracinganalysis.entity.PageViewRoute> routeRecords = new java.util.ArrayList<>();
             for (Map<String, Object> payload : payloads) {
                 Object eventInfoObj = payload.get("eventInfo");
                 Object baseInfoObj = payload.get("baseInfo");
@@ -149,11 +152,26 @@ public class TracingService {
                         te.setAppName(appName);
                         te.setSessionId(sessionId);
                         eventRecords.add(te);
+                        if ("PV".equalsIgnoreCase(te.getEventType())) {
+                            String fullUrl = getString(e, "triggerPageUrl", "pageUrl", "URL", "PAGE_URL");
+                            String[] parts = parsePageRoute(fullUrl);
+                            com.krielwus.webtracinganalysis.entity.PageViewRoute pvr = new com.krielwus.webtracinganalysis.entity.PageViewRoute();
+                            pvr.setAppCode(appCode);
+                            pvr.setAppName(appName);
+                            pvr.setSessionId(sessionId);
+                            pvr.setFullUrl(fullUrl);
+                            pvr.setRouteType(parts[0]);
+                            pvr.setRoutePath(parts[1]);
+                            pvr.setRouteParams(parts[2]);
+                            routeRecords.add(pvr);
+                        }
                     }
                 }
             }
             if (!baseRecords.isEmpty()) baseInfoRecordRepository.saveAll(baseRecords);
             if (!eventRecords.isEmpty()) tracingEventRepository.saveAll(eventRecords);
+            if (!routeRecords.isEmpty())
+                pageViewRouteRepository.saveAll(routeRecords);
             return null;
         });
     }
@@ -176,6 +194,7 @@ public class TracingService {
         if (eventInfoObj != null) {
             List<Map<String, Object>> events = toList(eventInfoObj);
             List<TracingEvent> batch = new ArrayList<>(events.size());
+            java.util.ArrayList<com.krielwus.webtracinganalysis.entity.PageViewRoute> routeRecords = new java.util.ArrayList<>();
             for (Map<String, Object> e : events) {
                 TracingEvent te = new TracingEvent();
                 Object type = e.get("eventType");
@@ -191,8 +210,23 @@ public class TracingService {
                 te.setAppName(appName);
                 te.setSessionId(sessionId);
                 batch.add(te);
+                if ("PV".equalsIgnoreCase(te.getEventType())) {
+                    String fullUrl = getString(e, "triggerPageUrl", "pageUrl", "URL", "PAGE_URL");
+                    String[] parts = parsePageRoute(fullUrl);
+                    com.krielwus.webtracinganalysis.entity.PageViewRoute pvr = new com.krielwus.webtracinganalysis.entity.PageViewRoute();
+                    pvr.setAppCode(appCode);
+                    pvr.setAppName(appName);
+                    pvr.setSessionId(sessionId);
+                    pvr.setFullUrl(fullUrl);
+                    pvr.setRouteType(parts[0]);
+                    pvr.setRoutePath(parts[1]);
+                    pvr.setRouteParams(parts[2]);
+                    routeRecords.add(pvr);
+                }
             }
             if (!batch.isEmpty()) tracingEventRepository.saveAll(batch);
+            if (!routeRecords.isEmpty())
+                pageViewRouteRepository.saveAll(routeRecords);
         }
     }
 
@@ -1193,21 +1227,12 @@ public class TracingService {
     public List<Map<String, Object>> aggregatePagePVForApp(LocalDate startDate, LocalDate endDate, String appCode) {
         Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
-        List<TracingEvent> events = tracingEventRepository.findByEventTypeAndAppCodeAndCreatedAtBetween("PV", appCode, start, end);
-        Map<String, Integer> pvByPage = new HashMap<>();
-        for (TracingEvent e : events) {
-            Map<String, Object> m = parsePayload(e);
-            String url = getString(m, "triggerPageUrl", "pageUrl", "URL", "PAGE_URL");
-            if (url == null || url.isEmpty()) continue;
-            pvByPage.put(url, pvByPage.getOrDefault(url, 0) + 1);
-        }
-        List<Map<String, Object>> out = new ArrayList<>();
-        List<Map.Entry<String, Integer>> entries = new ArrayList<>(pvByPage.entrySet());
-        entries.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
-        for (Map.Entry<String, Integer> en : entries) {
+        java.util.List<Object[]> rows = pageViewRouteRepository.countRoutePvForAppBetween(appCode, start, end);
+        java.util.List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Object[] r : rows) {
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("PAGE_URL", en.getKey());
-            row.put("PV_NUM", en.getValue());
+            row.put("PAGE_URL", String.valueOf(r[0]));
+            row.put("PV_NUM", ((Number) r[1]).intValue());
             out.add(row);
         }
         return out;
@@ -1274,6 +1299,66 @@ public class TracingService {
         } catch (IllegalArgumentException e) {
             return new HashMap<>();
         }
+    }
+
+    private final com.krielwus.webtracinganalysis.repository.PageViewRouteRepository pageViewRouteRepository;
+
+    private String[] parsePageRoute(String url) {
+        String type = "history";
+        String path = "/";
+        String paramsJson = "{}";
+        if (url == null || url.isEmpty())
+            return new String[] { type, path, paramsJson };
+        try {
+            int idx = url.indexOf('#');
+            if (idx >= 0) {
+                type = "hash";
+                String hash = url.substring(idx + 1);
+                String route = hash;
+                String query = null;
+                int q = hash.indexOf('?');
+                if (q >= 0) {
+                    route = hash.substring(0, q);
+                    query = hash.substring(q + 1);
+                }
+                path = route != null && route.length() > 0 ? (route.startsWith("/") ? route : "/" + route) : "/";
+                paramsJson = buildParamsJson(query);
+            } else {
+                java.net.URI uri = java.net.URI.create(url);
+                path = uri.getPath() == null || uri.getPath().isEmpty() ? "/" : uri.getPath();
+                paramsJson = buildParamsJson(uri.getQuery());
+            }
+        } catch (Exception ignore) {
+        }
+        return new String[] { type, path, paramsJson };
+    }
+
+    private String buildParamsJson(String query) {
+        if (query == null || query.isEmpty())
+            return "{}";
+        java.util.Map<String, String> map = new java.util.LinkedHashMap<>();
+        String[] pairs = query.split("&");
+        for (String p : pairs) {
+            if (p == null || p.isEmpty())
+                continue;
+            int eq = p.indexOf('=');
+            String k, v;
+            if (eq >= 0) {
+                k = p.substring(0, eq);
+                v = p.substring(eq + 1);
+            } else {
+                k = p;
+                v = "";
+            }
+            try {
+                k = java.net.URLDecoder.decode(k, java.nio.charset.StandardCharsets.UTF_8.name());
+                v = java.net.URLDecoder.decode(v, java.nio.charset.StandardCharsets.UTF_8.name());
+            } catch (Exception ignore) {
+            }
+            if (!k.isEmpty())
+                map.put(k, v);
+        }
+        return toJson(map);
     }
 
     private Set<String> distinctAppCodesRange(Date start, Date end) {

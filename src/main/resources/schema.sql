@@ -18,6 +18,23 @@ CREATE TABLE IF NOT EXISTS `trace_event` (
 
 -- 已包含结构化列，无需二次 ALTER
 
+-- 页面访问路由归总表
+CREATE TABLE IF NOT EXISTS `page_view_route` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `app_code` VARCHAR(128) NULL,
+  `app_name` VARCHAR(256) NULL,
+  `session_id` VARCHAR(128) NULL,
+  `route_type` VARCHAR(16) NULL,
+  `route_path` VARCHAR(512) NULL,
+  `route_params` LONGTEXT NULL,
+  `full_url` TEXT NULL,
+  `created_at` DATETIME NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_pvr_appcode_created_at` (`app_code`, `created_at`),
+  KEY `idx_pvr_appcode_route` (`app_code`, `route_path`),
+  KEY `idx_pvr_session_created_at` (`session_id`, `created_at`)
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='页面访问按路由拆解归档';
+
 -- 基线信息表：保存每次上报的基础环境信息的原始 JSON
 CREATE TABLE IF NOT EXISTS `base_info_record` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
