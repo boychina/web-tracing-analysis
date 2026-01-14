@@ -16,10 +16,10 @@ public class ApplicationInfo {
     @Column(name = "app_code", length = 32, nullable = false, unique = true)
     private String appCode;
 
-    @Column(name = "app_code_prefix", length = 16, nullable = false)
+    @Column(name = "app_code_prefix", length = 64, nullable = false)
     private String appCodePrefix;
 
-    @Column(name = "app_desc", length = 255)
+    @Column(name = "app_desc", length = 1000)
     private String appDesc;
 
     @Lob

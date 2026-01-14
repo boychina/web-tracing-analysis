@@ -18,8 +18,8 @@ import java.util.regex.Pattern;
 public class ApplicationService {
     private final ApplicationInfoRepository repo;
     private final TracingService tracingService;
-    private static final Pattern NAME_RULE = Pattern.compile("^.{2,16}$");
-    private static final Pattern PREFIX_RULE = Pattern.compile("^[A-Za-z0-9_]{2,16}$");
+    private static final Pattern NAME_RULE = Pattern.compile("^.{2,50}$");
+    private static final Pattern PREFIX_RULE = Pattern.compile("^[A-Za-z0-9_]{2,50}$");
 
     public ApplicationService(ApplicationInfoRepository repo, TracingService tracingService) { this.repo = repo; this.tracingService = tracingService; }
 

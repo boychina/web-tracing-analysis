@@ -281,12 +281,12 @@ function ApplicationManagement() {
       const values = await form.validateFields();
       const name = values.appName.trim();
       const prefix = values.appCodePrefix.trim();
-      if (name.length < 2 || name.length > 16) {
-        message.error("应用名称长度需2-16");
+      if (name.length < 2 || name.length > 50) {
+        message.error("应用名称长度需2-50");
         return;
       }
-      if (!/^[A-Za-z0-9_]{2,16}$/.test(prefix)) {
-        message.error("代码前缀需2-16位字母数字下划线");
+      if (!/^[A-Za-z0-9_]{2,50}$/.test(prefix)) {
+        message.error("代码前缀需2-50位字母数字下划线");
         return;
       }
       const managers = (values.appManagers || []).map((id) => String(id));
@@ -347,18 +347,20 @@ function ApplicationManagement() {
             label="应用名称"
             name="appName"
             rules={[{ required: true, message: "请输入应用名称" }]}
+            extra="长度2-50字符，必填"
           >
-            <Input placeholder="2-16字符" />
+            <Input placeholder="2-50字符" maxLength={50} />
           </Form.Item>
           <Form.Item
             label="应用前缀"
             name="appCodePrefix"
             rules={[{ required: true, message: "请输入应用前缀" }]}
+            extra="2-50位，仅限字母、数字、下划线，必填"
           >
-            <Input placeholder="2-16位字母数字下划线" />
+            <Input placeholder="2-50位字母数字下划线" maxLength={50} />
           </Form.Item>
-          <Form.Item label="应用描述" name="appDesc">
-            <Input placeholder="可选" />
+          <Form.Item label="应用描述" name="appDesc" extra="最长1000字符">
+            <Input placeholder="可选" maxLength={1000} />
           </Form.Item>
           <Form.Item label="管理员" name="appManagers">
             <Checkbox.Group style={{ width: "100%" }}>
