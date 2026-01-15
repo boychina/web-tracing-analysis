@@ -9,6 +9,8 @@ import {
   Row,
   Segmented,
   Select,
+  Switch,
+  InputNumber,
   Skeleton,
   Space,
   Tooltip,
@@ -166,6 +168,25 @@ function ApplicationMonitor() {
   const [currentSessionId, setCurrentSessionId] = useState<string>("");
   const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
   const [sessionDetailSteps, setSessionDetailSteps] = useState<any[]>([]);
+
+  const [pathCollapseDuplicates, setPathCollapseDuplicates] = useState(true);
+  const [pathMinStayMs, setPathMinStayMs] = useState<number>(0);
+  const [pathMaxDepth, setPathMaxDepth] = useState<number>(20);
+  const [pathIgnorePatterns, setPathIgnorePatterns] = useState<string>("");
+
+  const [pathAggLoading, setPathAggLoading] = useState(false);
+  const [pathAggSessionCount, setPathAggSessionCount] = useState(0);
+  const [topPathPatterns, setTopPathPatterns] = useState<any[]>([]);
+  const [funnelRows, setFunnelRows] = useState<any[]>([]);
+  const [funnelGroups, setFunnelGroups] = useState<any[]>([]);
+  const [activeFunnelGroupKey, setActiveFunnelGroupKey] = useState<string>("ALL");
+  const [funnelStartRoutePath, setFunnelStartRoutePath] = useState<string>("");
+  const [funnelGroupBy, setFunnelGroupBy] = useState<"NONE" | "USER" | "PARAM">(
+    "NONE"
+  );
+  const [funnelGroupParamName, setFunnelGroupParamName] = useState<string>(
+    "channel"
+  );
   const [errorRange, setErrorRange] = useState<[DayjsValue, DayjsValue]>(
     getPresetRange("7d")
   );
@@ -473,11 +494,21 @@ function ApplicationMonitor() {
   ) {
     try {
       setSessionPathsLoading(true);
+      const ignoreRoutePatterns = pathIgnorePatterns
+        ? pathIgnorePatterns
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
       const resp = await client.post("/application/monitor/sessionPaths", {
         appCode,
         startDate: start.format("YYYY-MM-DD"),
         endDate: end.format("YYYY-MM-DD"),
-        limitSessions: 100,
+        limitSessions: 200,
+        collapseConsecutiveDuplicates: pathCollapseDuplicates,
+        minStayMs: pathMinStayMs || 0,
+        maxDepth: pathMaxDepth || 20,
+        ignoreRoutePatterns,
       });
       if (resp.data?.code === 1000) {
         setSessionPaths(Array.isArray(resp.data.data) ? resp.data.data : []);
@@ -488,6 +519,87 @@ function ApplicationMonitor() {
       setSessionPaths([]);
     } finally {
       setSessionPathsLoading(false);
+    }
+  }
+
+  async function loadSessionPathAggregateData(
+    appCode: string,
+    start: DayjsValue,
+    end: DayjsValue
+  ) {
+    try {
+      setPathAggLoading(true);
+      const ignoreRoutePatterns = pathIgnorePatterns
+        ? pathIgnorePatterns
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+      const resp = await client.post("/application/monitor/sessionPaths/aggregate", {
+        appCode,
+        startDate: start.format("YYYY-MM-DD"),
+        endDate: end.format("YYYY-MM-DD"),
+        limitSessions: 1000,
+        topN: 30,
+        collapseConsecutiveDuplicates: pathCollapseDuplicates,
+        minStayMs: pathMinStayMs || 0,
+        maxDepth: pathMaxDepth || 20,
+        ignoreRoutePatterns,
+        startRoutePath: funnelStartRoutePath?.trim() || undefined,
+        groupBy: funnelGroupBy,
+        groupParamName:
+          funnelGroupBy === "PARAM" ? funnelGroupParamName?.trim() : undefined,
+        maxGroups: 20,
+      });
+      if (resp.data?.code === 1000 && resp.data.data) {
+        setPathAggSessionCount(
+          typeof resp.data.data.sessionCount === "number"
+            ? resp.data.data.sessionCount
+            : Number(resp.data.data.sessionCount || 0)
+        );
+        const groups = Array.isArray(resp.data.data.groups)
+          ? resp.data.data.groups
+          : [];
+        setFunnelGroups(groups);
+        if (groups.length > 0) {
+          const first = groups[0];
+          setActiveFunnelGroupKey(String(first.GROUP_KEY ?? "ALL"));
+          setTopPathPatterns(Array.isArray(first.topPaths) ? first.topPaths : []);
+          setFunnelRows(Array.isArray(first.funnel) ? first.funnel : []);
+        } else {
+          setActiveFunnelGroupKey("ALL");
+          setTopPathPatterns(
+            Array.isArray(resp.data.data.topPaths) ? resp.data.data.topPaths : []
+          );
+          setFunnelRows(Array.isArray(resp.data.data.funnel) ? resp.data.data.funnel : []);
+        }
+      } else {
+        setPathAggSessionCount(0);
+        setTopPathPatterns([]);
+        setFunnelRows([]);
+        setFunnelGroups([]);
+        setActiveFunnelGroupKey("ALL");
+      }
+    } catch {
+      setPathAggSessionCount(0);
+      setTopPathPatterns([]);
+      setFunnelRows([]);
+      setFunnelGroups([]);
+      setActiveFunnelGroupKey("ALL");
+    } finally {
+      setPathAggLoading(false);
+    }
+  }
+
+  function applyFunnelGroup(key: string) {
+    const hit = funnelGroups.find((g) => String(g.GROUP_KEY) === key);
+    setActiveFunnelGroupKey(key);
+    if (hit) {
+      setTopPathPatterns(Array.isArray(hit.topPaths) ? hit.topPaths : []);
+      setFunnelRows(Array.isArray(hit.funnel) ? hit.funnel : []);
+    } else {
+      setTopPathPatterns([]);
+      setFunnelRows([]);
     }
   }
 
@@ -505,6 +617,10 @@ function ApplicationMonitor() {
           sessionId,
           startDate: start.format("YYYY-MM-DD"),
           endDate: end.format("YYYY-MM-DD"),
+          collapseConsecutiveDuplicates: pathCollapseDuplicates,
+          minStayMs: pathMinStayMs || 0,
+          maxDepth: pathMaxDepth || 20,
+          ignoreRoutePatterns: pathIgnorePatterns || undefined,
         },
       });
       if (resp.data?.code === 1000) {
@@ -581,6 +697,7 @@ function ApplicationMonitor() {
       loadPagePvData(appCode, pagePvRange[0], pagePvRange[1]),
       loadErrorTrendData(appCode, errorRange[0], errorRange[1]),
       loadSessionPathsData(appCode, sessionPathRange[0], sessionPathRange[1]),
+      loadSessionPathAggregateData(appCode, sessionPathRange[0], sessionPathRange[1]),
       loadErrors(appCode, 1, errorPageSize, nextFilters),
     ]);
   }
@@ -1020,6 +1137,40 @@ function ApplicationMonitor() {
         title={
           <Space wrap align="center" size={8}>
             <span style={{ fontWeight: 600 }}>会话路径分析</span>
+            <Space size={6}>
+              <span>折叠重复</span>
+              <Switch
+                size="small"
+                checked={pathCollapseDuplicates}
+                onChange={(v) => setPathCollapseDuplicates(v)}
+              />
+            </Space>
+            <Space size={6}>
+              <span>最小停留(ms)</span>
+              <InputNumber
+                size="small"
+                min={0}
+                value={pathMinStayMs}
+                onChange={(v) => setPathMinStayMs(Number(v || 0))}
+              />
+            </Space>
+            <Space size={6}>
+              <span>最大深度</span>
+              <InputNumber
+                size="small"
+                min={1}
+                value={pathMaxDepth}
+                onChange={(v) => setPathMaxDepth(Number(v || 20))}
+              />
+            </Space>
+            <Input
+              size="small"
+              style={{ width: 260 }}
+              placeholder="忽略路由(正则/逗号分隔)"
+              value={pathIgnorePatterns}
+              onChange={(e) => setPathIgnorePatterns(e.target.value)}
+              allowClear
+            />
             <Segmented
               value={sessionPathPreset}
               onChange={(val) => {
@@ -1030,6 +1181,7 @@ function ApplicationMonitor() {
                   const r = getPresetRange(preset);
                   setSessionPathRange(r);
                   loadSessionPathsData(currentApp, r[0], r[1]);
+                  loadSessionPathAggregateData(currentApp, r[0], r[1]);
                 }
               }}
               options={[
@@ -1050,6 +1202,7 @@ function ApplicationMonitor() {
                   if (vals && vals[0] && vals[1]) {
                     setSessionPathRange([vals[0], vals[1]]);
                     loadSessionPathsData(currentApp, vals[0], vals[1]);
+                    loadSessionPathAggregateData(currentApp, vals[0], vals[1]);
                   }
                 }}
               />
@@ -1060,6 +1213,7 @@ function ApplicationMonitor() {
               onClick={() => {
                 if (!currentApp) return;
                 loadSessionPathsData(currentApp, sessionPathRange[0], sessionPathRange[1]);
+                loadSessionPathAggregateData(currentApp, sessionPathRange[0], sessionPathRange[1]);
               }}
             >
               刷新
@@ -1113,6 +1267,132 @@ function ApplicationMonitor() {
               },
             ]}
           />
+        </Skeleton>
+      </Card>
+
+      <Card
+        title={
+          <Space wrap align="center" size={8}>
+            <span style={{ fontWeight: 600 }}>
+              路径聚类 / Top 路径漏斗
+            </span>
+            <Input
+              size="small"
+              style={{ width: 180 }}
+              placeholder="起始页路由(可选)"
+              value={funnelStartRoutePath}
+              onChange={(e) => setFunnelStartRoutePath(e.target.value)}
+              allowClear
+            />
+            <Select
+              size="small"
+              style={{ width: 120 }}
+              value={funnelGroupBy}
+              onChange={(v) => setFunnelGroupBy(v)}
+              options={[
+                { label: "不分组", value: "NONE" },
+                { label: "按用户", value: "USER" },
+                { label: "按参数", value: "PARAM" },
+              ]}
+            />
+            {funnelGroupBy === "PARAM" && (
+              <Input
+                size="small"
+                style={{ width: 140 }}
+                placeholder="参数名，如 channel"
+                value={funnelGroupParamName}
+                onChange={(e) => setFunnelGroupParamName(e.target.value)}
+              />
+            )}
+            {funnelGroups.length > 1 && (
+              <Select
+                size="small"
+                style={{ width: 200 }}
+                value={activeFunnelGroupKey}
+                onChange={(v) => applyFunnelGroup(String(v))}
+                options={funnelGroups.map((g) => ({
+                  label: `${g.GROUP_KEY} (${g.SESSION_COUNT})`,
+                  value: String(g.GROUP_KEY),
+                }))}
+              />
+            )}
+            <Typography.Text type="secondary">
+              统计会话数: {pathAggSessionCount}
+            </Typography.Text>
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                if (!currentApp) return;
+                loadSessionPathAggregateData(currentApp, sessionPathRange[0], sessionPathRange[1]);
+              }}
+            >
+              刷新
+            </Button>
+          </Space>
+        }
+        style={{ marginTop: 16 }}
+      >
+        <Skeleton active loading={pathAggLoading} paragraph={{ rows: 8 }}>
+          <Row gutter={16}>
+            <Col span={14}>
+              <Table
+                rowKey={(r) => `${r.PATH || ""}-${r.COUNT || 0}`}
+                dataSource={topPathPatterns}
+                pagination={{ pageSize: 8 }}
+                columns={[
+                  { title: "会话数", dataIndex: "COUNT", width: 90 },
+                  {
+                    title: "占比(%)",
+                    dataIndex: "PCT",
+                    width: 90,
+                    render: (v: any) =>
+                      typeof v === "number" ? v.toFixed(2) : String(v || "0"),
+                  },
+                  {
+                    title: "路径模式",
+                    dataIndex: "PATH",
+                    render: (v: string) => (
+                      <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 520 }}>
+                        {v}
+                      </Typography.Text>
+                    ),
+                  },
+                  {
+                    title: "示例",
+                    width: 80,
+                    render: (_: any, row: any) => (
+                      <Button
+                        type="link"
+                        onClick={() => {
+                          if (!currentApp) return;
+                          const sid = row.SAMPLE_SESSION_ID;
+                          if (!sid) return;
+                          setCurrentSessionId(sid);
+                          setSessionDetailOpen(true);
+                          loadSessionDetail(currentApp, sid, sessionPathRange[0], sessionPathRange[1]);
+                        }}
+                      >
+                        查看
+                      </Button>
+                    ),
+                  },
+                ]}
+              />
+            </Col>
+            <Col span={10}>
+              <Table
+                rowKey={(r) => `${r.STEP}-${r.ROUTE_PATH}-${r.COUNT}`}
+                dataSource={funnelRows}
+                pagination={{ pageSize: 10 }}
+                columns={[
+                  { title: "步", dataIndex: "STEP", width: 50 },
+                  { title: "路由", dataIndex: "ROUTE_PATH" },
+                  { title: "会话数", dataIndex: "COUNT", width: 90 },
+                ]}
+              />
+            </Col>
+          </Row>
         </Skeleton>
       </Card>
 

@@ -58,6 +58,12 @@ tracing:
     consumer:
       threads: 2
     offerTimeoutMs: 10
+  session-path:
+    collapseConsecutiveDuplicates: true
+    minStayMs: 0
+    maxDepth: 20
+    defaultLimitSessions: 100
+    ignoreRoutePatterns: []
 #  application:
 #    name: druid-jdbc-yasdb
 #  mvc.async.request-timeout: 20000

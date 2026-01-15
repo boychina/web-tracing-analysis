@@ -146,8 +146,41 @@ public class ApplicationService {
         return tracingService.listSessionPaths(appCode, start, end, limitSessions);
     }
 
+    public List<Map<String, Object>> listSessionPaths(String appCode, LocalDate start, LocalDate end, int limitSessions,
+            Boolean collapseConsecutiveDuplicates, Long minStayMs, java.util.List<String> ignoreRoutePatterns,
+            Integer maxDepth) {
+        return tracingService.listSessionPaths(appCode, start, end, limitSessions, collapseConsecutiveDuplicates,
+                minStayMs, ignoreRoutePatterns, maxDepth);
+    }
+
     public List<Map<String, Object>> getSessionPathDetail(String appCode, String sessionId, LocalDate start, LocalDate end) {
         return tracingService.getSessionPathDetail(appCode, sessionId, start, end);
+    }
+
+    public List<Map<String, Object>> getSessionPathDetail(String appCode, String sessionId, LocalDate start,
+            LocalDate end,
+            Boolean collapseConsecutiveDuplicates, Long minStayMs, java.util.List<String> ignoreRoutePatterns,
+            Integer maxDepth) {
+        return tracingService.getSessionPathDetail(appCode, sessionId, start, end, collapseConsecutiveDuplicates,
+                minStayMs, ignoreRoutePatterns, maxDepth);
+    }
+
+    public Map<String, Object> aggregateSessionPathPatterns(String appCode, LocalDate start, LocalDate end,
+            int limitSessions, int topN,
+            Boolean collapseConsecutiveDuplicates, Long minStayMs, java.util.List<String> ignoreRoutePatterns,
+            Integer maxDepth) {
+        return tracingService.aggregateSessionPathPatterns(appCode, start, end, limitSessions, topN,
+                collapseConsecutiveDuplicates, minStayMs, ignoreRoutePatterns, maxDepth);
+    }
+
+    public Map<String, Object> aggregateSessionPathPatterns(String appCode, LocalDate start, LocalDate end,
+            int limitSessions, int topN,
+            Boolean collapseConsecutiveDuplicates, Long minStayMs, java.util.List<String> ignoreRoutePatterns,
+            Integer maxDepth,
+            String startRoutePath, String groupBy, String groupParamName, Integer maxGroups) {
+        return tracingService.aggregateSessionPathPatterns(appCode, start, end, limitSessions, topN,
+                collapseConsecutiveDuplicates,
+                minStayMs, ignoreRoutePatterns, maxDepth, startRoutePath, groupBy, groupParamName, maxGroups);
     }
 
     public List<Map<String, Object>> aggregateDailyUVForApp(LocalDate start, LocalDate end, String appCode) {

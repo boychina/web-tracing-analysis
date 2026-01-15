@@ -41,6 +41,7 @@ public class TracingService {
     private final ApplicationInfoRepository applicationInfoRepository;
     private final ApplicationService applicationService;
     private final PlatformTransactionManager transactionManager;
+    private final com.krielwus.webtracinganalysis.config.SessionPathProperties sessionPathProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final DateTimeFormatter DF = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     @Value("${tracing.ingest.queue.maxSize:20000}")
@@ -65,13 +66,15 @@ public class TracingService {
                           ApplicationInfoRepository applicationInfoRepository,
                           @Lazy ApplicationService applicationService,
           PlatformTransactionManager transactionManager,
-          com.krielwus.webtracinganalysis.repository.PageViewRouteRepository pageViewRouteRepository) {
+            com.krielwus.webtracinganalysis.repository.PageViewRouteRepository pageViewRouteRepository,
+            com.krielwus.webtracinganalysis.config.SessionPathProperties sessionPathProperties) {
         this.tracingEventRepository = tracingEventRepository;
         this.baseInfoRecordRepository = baseInfoRecordRepository;
         this.applicationInfoRepository = applicationInfoRepository;
         this.applicationService = applicationService;
         this.transactionManager = transactionManager;
         this.pageViewRouteRepository = pageViewRouteRepository;
+        this.sessionPathProperties = sessionPathProperties;
     }
 
     @PostConstruct
@@ -1301,9 +1304,30 @@ public class TracingService {
 
     public List<Map<String, Object>> listSessionPaths(String appCode, LocalDate startDate, LocalDate endDate,
             int limitSessions) {
+        return listSessionPaths(appCode, startDate, endDate, limitSessions,
+                sessionPathProperties.isCollapseConsecutiveDuplicates(),
+                sessionPathProperties.getMinStayMs(),
+                sessionPathProperties.getIgnoreRoutePatterns(),
+                sessionPathProperties.getMaxDepth());
+    }
+
+    public List<Map<String, Object>> listSessionPaths(String appCode, LocalDate startDate, LocalDate endDate,
+            int limitSessions,
+            Boolean collapseConsecutiveDuplicates,
+            Long minStayMs,
+            List<String> ignoreRoutePatterns,
+            Integer maxDepth) {
         if (appCode == null || appCode.trim().isEmpty())
             return Collections.emptyList();
-        int limit = limitSessions < 1 ? 50 : Math.min(limitSessions, 200);
+        boolean collapse = collapseConsecutiveDuplicates == null
+                ? sessionPathProperties.isCollapseConsecutiveDuplicates()
+                : collapseConsecutiveDuplicates;
+        long minStay = minStayMs == null ? sessionPathProperties.getMinStayMs() : Math.max(0, minStayMs);
+        int depth = maxDepth == null ? sessionPathProperties.getMaxDepth() : Math.max(1, maxDepth);
+        int limit = limitSessions < 1 ? sessionPathProperties.getDefaultLimitSessions() : Math.min(limitSessions, 2000);
+        List<String> ignore = (ignoreRoutePatterns == null) ? sessionPathProperties.getIgnoreRoutePatterns()
+                : ignoreRoutePatterns;
+
         Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
         List<String> sessionIds = pageViewRouteRepository.findRecentSessionIdsBetween(appCode.trim(), start, end,
@@ -1323,17 +1347,9 @@ public class TracingService {
             List<com.krielwus.webtracinganalysis.entity.PageViewRoute> list = bySession.get(sid);
             if (list == null || list.isEmpty())
                 continue;
-            List<String> steps = new ArrayList<>();
-            String last = null;
-            for (com.krielwus.webtracinganalysis.entity.PageViewRoute r : list) {
-                String cur = r.getRoutePath();
-                if (cur == null || cur.isEmpty())
-                    continue;
-                if (last == null || !last.equals(cur)) {
-                    steps.add(cur);
-                    last = cur;
-                }
-            }
+            List<SessionStep> steps = buildSessionSteps(list, collapse, minStay, ignore, depth);
+            if (steps.isEmpty())
+                continue;
             com.krielwus.webtracinganalysis.entity.PageViewRoute first = list.get(0);
             com.krielwus.webtracinganalysis.entity.PageViewRoute lastRow = list.get(list.size() - 1);
             Map<String, Object> m = new LinkedHashMap<>();
@@ -1343,7 +1359,8 @@ public class TracingService {
             m.put("FIRST_TIME", first.getCreatedAt());
             m.put("LAST_TIME", lastRow.getCreatedAt());
             m.put("STEP_COUNT", steps.size());
-            m.put("PATH", String.join(" -> ", steps));
+            m.put("PATH", String.join(" -> ",
+                    steps.stream().map(s -> s.routePath).collect(java.util.stream.Collectors.toList())));
             out.add(m);
         }
         return out;
@@ -1351,23 +1368,398 @@ public class TracingService {
 
     public List<Map<String, Object>> getSessionPathDetail(String appCode, String sessionId, LocalDate startDate,
             LocalDate endDate) {
+        return getSessionPathDetail(appCode, sessionId, startDate, endDate,
+                sessionPathProperties.isCollapseConsecutiveDuplicates(),
+                sessionPathProperties.getMinStayMs(),
+                sessionPathProperties.getIgnoreRoutePatterns(),
+                sessionPathProperties.getMaxDepth());
+    }
+
+    public List<Map<String, Object>> getSessionPathDetail(String appCode, String sessionId, LocalDate startDate,
+            LocalDate endDate,
+            Boolean collapseConsecutiveDuplicates,
+            Long minStayMs,
+            List<String> ignoreRoutePatterns,
+            Integer maxDepth) {
         if (appCode == null || appCode.trim().isEmpty() || sessionId == null || sessionId.trim().isEmpty()) {
             return Collections.emptyList();
         }
+        boolean collapse = collapseConsecutiveDuplicates == null
+                ? sessionPathProperties.isCollapseConsecutiveDuplicates()
+                : collapseConsecutiveDuplicates;
+        long minStay = minStayMs == null ? sessionPathProperties.getMinStayMs() : Math.max(0, minStayMs);
+        int depth = maxDepth == null ? sessionPathProperties.getMaxDepth() : Math.max(1, maxDepth);
+        List<String> ignore = (ignoreRoutePatterns == null) ? sessionPathProperties.getIgnoreRoutePatterns()
+                : ignoreRoutePatterns;
+
         Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
         List<com.krielwus.webtracinganalysis.entity.PageViewRoute> rows = pageViewRouteRepository
                 .findByAppCodeAndSessionIdAndCreatedAtBetweenOrderByCreatedAtAsc(appCode.trim(), sessionId.trim(),
                         start, end);
+        if (rows.isEmpty())
+            return Collections.emptyList();
+        List<SessionStep> steps = buildSessionSteps(rows, collapse, minStay, ignore, depth);
         List<Map<String, Object>> out = new ArrayList<>();
-        for (com.krielwus.webtracinganalysis.entity.PageViewRoute r : rows) {
+        for (SessionStep s : steps) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("CREATED_AT", r.getCreatedAt());
-            m.put("ROUTE_PATH", r.getRoutePath());
-            m.put("ROUTE_TYPE", r.getRouteType());
-            m.put("ROUTE_PARAMS", r.getRouteParams());
-            m.put("FULL_URL", r.getFullUrl());
+            m.put("CREATED_AT", s.createdAt);
+            m.put("ROUTE_PATH", s.routePath);
+            m.put("ROUTE_TYPE", s.routeType);
+            m.put("ROUTE_PARAMS", s.routeParams);
+            m.put("FULL_URL", s.fullUrl);
+            m.put("DURATION_MS", s.durationMs);
             out.add(m);
+        }
+        return out;
+    }
+
+    public Map<String, Object> aggregateSessionPathPatterns(String appCode, LocalDate startDate, LocalDate endDate,
+            int limitSessions,
+            int topN,
+            Boolean collapseConsecutiveDuplicates,
+            Long minStayMs,
+            List<String> ignoreRoutePatterns,
+            Integer maxDepth) {
+        return aggregateSessionPathPatterns(appCode, startDate, endDate, limitSessions, topN,
+                collapseConsecutiveDuplicates,
+                minStayMs, ignoreRoutePatterns, maxDepth, null, null, null, null);
+    }
+
+    public Map<String, Object> aggregateSessionPathPatterns(String appCode, LocalDate startDate, LocalDate endDate,
+            int limitSessions,
+            int topN,
+            Boolean collapseConsecutiveDuplicates,
+            Long minStayMs,
+            List<String> ignoreRoutePatterns,
+            Integer maxDepth,
+            String startRoutePath,
+            String groupBy,
+            String groupParamName,
+            Integer maxGroups) {
+        if (appCode == null || appCode.trim().isEmpty()) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("topPaths", Collections.emptyList());
+            out.put("funnel", Collections.emptyList());
+            out.put("sessionCount", 0);
+            return out;
+        }
+        boolean collapse = collapseConsecutiveDuplicates == null
+                ? sessionPathProperties.isCollapseConsecutiveDuplicates()
+                : collapseConsecutiveDuplicates;
+        long minStay = minStayMs == null ? sessionPathProperties.getMinStayMs() : Math.max(0, minStayMs);
+        int depth = maxDepth == null ? sessionPathProperties.getMaxDepth() : Math.max(1, maxDepth);
+        int limit = limitSessions < 1 ? sessionPathProperties.getDefaultLimitSessions() : Math.min(limitSessions, 5000);
+        int n = topN < 1 ? 20 : Math.min(topN, 200);
+        int groupsLimit = (maxGroups == null || maxGroups < 1) ? 20 : Math.min(maxGroups, 200);
+        List<String> ignore = (ignoreRoutePatterns == null) ? sessionPathProperties.getIgnoreRoutePatterns()
+                : ignoreRoutePatterns;
+
+        Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        List<String> sessionIds = pageViewRouteRepository.findRecentSessionIdsBetween(appCode.trim(), start, end,
+                PageRequest.of(0, limit));
+        if (sessionIds.isEmpty()) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("topPaths", Collections.emptyList());
+            out.put("funnel", Collections.emptyList());
+            out.put("sessionCount", 0);
+            return out;
+        }
+        List<com.krielwus.webtracinganalysis.entity.PageViewRoute> rows = pageViewRouteRepository
+                .findByAppCodeAndSessionIdsBetweenOrdered(appCode.trim(), sessionIds, start, end);
+        Map<String, List<com.krielwus.webtracinganalysis.entity.PageViewRoute>> bySession = new LinkedHashMap<>();
+        for (com.krielwus.webtracinganalysis.entity.PageViewRoute r : rows) {
+            if (r.getSessionId() == null || r.getSessionId().isEmpty())
+                continue;
+            bySession.computeIfAbsent(r.getSessionId(), k -> new ArrayList<>()).add(r);
+        }
+
+        String startRoute = (startRoutePath == null || startRoutePath.trim().isEmpty()) ? null : startRoutePath.trim();
+        String groupMode = (groupBy == null) ? "NONE" : groupBy.trim().toUpperCase(Locale.ROOT);
+        if (!"USER".equals(groupMode) && !"PARAM".equals(groupMode))
+            groupMode = "NONE";
+        String groupParam = (groupParamName == null || groupParamName.trim().isEmpty()) ? null : groupParamName.trim();
+
+        Map<String, GroupAgg> groupAgg = new HashMap<>();
+        long sessionsUsedTotal = 0;
+        for (String sid : sessionIds) {
+            List<com.krielwus.webtracinganalysis.entity.PageViewRoute> list = bySession.get(sid);
+            if (list == null || list.isEmpty())
+                continue;
+            List<SessionStep> rawSteps = buildSessionSteps(list, collapse, minStay, ignore, 1000);
+            if (rawSteps.isEmpty())
+                continue;
+            List<SessionStep> steps = applyStartRouteAndDepth(rawSteps, startRoute, depth);
+            if (steps.isEmpty())
+                continue;
+            sessionsUsedTotal++;
+            String gk = "ALL";
+            if ("USER".equals(groupMode)) {
+                String user = list.get(0).getSdkUserUuid();
+                gk = (user == null || user.isEmpty()) ? "UNKNOWN" : user;
+            } else if ("PARAM".equals(groupMode)) {
+                if (groupParam == null || groupParam.isEmpty()) {
+                    gk = "UNKNOWN";
+                } else {
+                    String v = extractRouteParamValue(steps.get(0).routeParams, groupParam);
+                    gk = (v == null || v.isEmpty()) ? "UNKNOWN" : v;
+                }
+            }
+
+            GroupAgg agg = groupAgg.computeIfAbsent(gk, k -> new GroupAgg());
+            agg.sessionsUsed++;
+            List<String> routeSeq = steps.stream().map(s -> s.routePath).collect(java.util.stream.Collectors.toList());
+            String key = String.join(" -> ", routeSeq);
+            agg.pathCount.put(key, agg.pathCount.getOrDefault(key, 0L) + 1L);
+            agg.sampleSession.putIfAbsent(key, sid);
+            for (int i = 0; i < routeSeq.size(); i++) {
+                String route = routeSeq.get(i);
+                agg.funnel.computeIfAbsent(i + 1, k -> new HashMap<>()).put(route,
+                        agg.funnel.getOrDefault(i + 1, Collections.emptyMap()).getOrDefault(route, 0L) + 1L);
+            }
+        }
+
+        List<Map<String, Object>> groups = new ArrayList<>();
+        List<Map.Entry<String, GroupAgg>> gEntries = new ArrayList<>(groupAgg.entrySet());
+        gEntries.sort((a, b) -> Long.compare(b.getValue().sessionsUsed, a.getValue().sessionsUsed));
+        int takeGroups = Math.min(groupsLimit, gEntries.size());
+        for (int gi = 0; gi < takeGroups; gi++) {
+            Map.Entry<String, GroupAgg> ge = gEntries.get(gi);
+            String gk = ge.getKey();
+            GroupAgg agg = ge.getValue();
+
+            List<Map<String, Object>> topPaths = new ArrayList<>();
+            List<Map.Entry<String, Long>> pathEntries = new ArrayList<>(agg.pathCount.entrySet());
+            pathEntries.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));
+            for (int i = 0; i < Math.min(n, pathEntries.size()); i++) {
+                Map.Entry<String, Long> en = pathEntries.get(i);
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("PATH", en.getKey());
+                m.put("COUNT", en.getValue());
+                m.put("PCT", agg.sessionsUsed <= 0 ? 0 : (double) en.getValue() * 100.0 / (double) agg.sessionsUsed);
+                m.put("SAMPLE_SESSION_ID", agg.sampleSession.get(en.getKey()));
+                topPaths.add(m);
+            }
+
+            List<Map<String, Object>> funnelOut = new ArrayList<>();
+            List<Integer> stepsIdx = new ArrayList<>(agg.funnel.keySet());
+            Collections.sort(stepsIdx);
+            for (Integer stepIndex : stepsIdx) {
+                Map<String, Long> mp = agg.funnel.get(stepIndex);
+                if (mp == null)
+                    continue;
+                List<Map.Entry<String, Long>> ents = new ArrayList<>(mp.entrySet());
+                ents.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));
+                int take = Math.min(10, ents.size());
+                for (int i = 0; i < take; i++) {
+                    Map.Entry<String, Long> en = ents.get(i);
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("STEP", stepIndex);
+                    m.put("ROUTE_PATH", en.getKey());
+                    m.put("COUNT", en.getValue());
+                    funnelOut.add(m);
+                }
+            }
+
+            Map<String, Object> groupObj = new LinkedHashMap<>();
+            groupObj.put("GROUP_KEY", gk);
+            groupObj.put("SESSION_COUNT", agg.sessionsUsed);
+            groupObj.put("topPaths", topPaths);
+            groupObj.put("funnel", funnelOut);
+            groups.add(groupObj);
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("groupBy", groupMode);
+        out.put("groupParamName", groupParam);
+        out.put("startRoutePath", startRoute);
+        out.put("groups", groups);
+        out.put("sessionCount", sessionsUsedTotal);
+        if ("NONE".equals(groupMode)) {
+            if (!groups.isEmpty()) {
+                Map<String, Object> first = groups.get(0);
+                out.put("topPaths", first.get("topPaths"));
+                out.put("funnel", first.get("funnel"));
+            } else {
+                out.put("topPaths", Collections.emptyList());
+                out.put("funnel", Collections.emptyList());
+            }
+        }
+        return out;
+    }
+
+    private static class GroupAgg {
+        private long sessionsUsed = 0;
+        private final Map<String, Long> pathCount = new HashMap<>();
+        private final Map<String, String> sampleSession = new HashMap<>();
+        private final Map<Integer, Map<String, Long>> funnel = new HashMap<>();
+    }
+
+    private List<SessionStep> applyStartRouteAndDepth(List<SessionStep> steps, String startRoutePath, int maxDepth) {
+        if (steps == null || steps.isEmpty())
+            return Collections.emptyList();
+        List<SessionStep> sliced = steps;
+        if (startRoutePath != null && !startRoutePath.isEmpty()) {
+            int idx = -1;
+            for (int i = 0; i < steps.size(); i++) {
+                if (startRoutePath.equals(steps.get(i).routePath)) {
+                    idx = i;
+                    break;
+                }
+            }
+            if (idx < 0)
+                return Collections.emptyList();
+            sliced = steps.subList(idx, steps.size());
+        }
+        int take = Math.min(maxDepth, sliced.size());
+        List<SessionStep> cut = sliced.subList(0, take);
+        List<SessionStep> out = new ArrayList<>();
+        for (int i = 0; i < cut.size(); i++) {
+            SessionStep s = cut.get(i);
+            Long duration = null;
+            if (i < cut.size() - 1) {
+                long d = cut.get(i + 1).createdAt.getTime() - s.createdAt.getTime();
+                duration = Math.max(0, d);
+            }
+            out.add(new SessionStep(s.createdAt, s.routePath, s.routeType, s.routeParams, s.fullUrl, duration));
+        }
+        return out;
+    }
+
+    private String extractRouteParamValue(String routeParamsJson, String key) {
+        if (routeParamsJson == null || routeParamsJson.isEmpty() || key == null || key.isEmpty())
+            return null;
+        try {
+            Map<String, Object> m = objectMapper.readValue(routeParamsJson, new TypeReference<Map<String, Object>>() {
+            });
+            Object v = m.get(key);
+            return v == null ? null : String.valueOf(v);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static class SessionStep {
+        private final Date createdAt;
+        private final String routePath;
+        private final String routeType;
+        private final String routeParams;
+        private final String fullUrl;
+        private final Long durationMs;
+
+        private SessionStep(Date createdAt, String routePath, String routeType, String routeParams, String fullUrl,
+                Long durationMs) {
+            this.createdAt = createdAt;
+            this.routePath = routePath;
+            this.routeType = routeType;
+            this.routeParams = routeParams;
+            this.fullUrl = fullUrl;
+            this.durationMs = durationMs;
+        }
+    }
+
+    private List<SessionStep> buildSessionSteps(List<com.krielwus.webtracinganalysis.entity.PageViewRoute> rows,
+            boolean collapseConsecutiveDuplicates,
+            long minStayMs,
+            List<String> ignoreRoutePatterns,
+            int maxDepth) {
+        List<java.util.regex.Pattern> patterns = new ArrayList<>();
+        if (ignoreRoutePatterns != null) {
+            for (String p : ignoreRoutePatterns) {
+                if (p == null || p.trim().isEmpty())
+                    continue;
+                try {
+                    patterns.add(java.util.regex.Pattern.compile(p.trim()));
+                } catch (Exception ignore) {
+                }
+            }
+        }
+        List<com.krielwus.webtracinganalysis.entity.PageViewRoute> filtered = new ArrayList<>();
+        for (com.krielwus.webtracinganalysis.entity.PageViewRoute r : rows) {
+            String path = r.getRoutePath();
+            if (path == null || path.isEmpty())
+                continue;
+            boolean ignored = false;
+            for (java.util.regex.Pattern pt : patterns) {
+                if (pt.matcher(path).find()) {
+                    ignored = true;
+                    break;
+                }
+            }
+            if (!ignored)
+                filtered.add(r);
+        }
+        if (filtered.isEmpty())
+            return Collections.emptyList();
+
+        List<com.krielwus.webtracinganalysis.entity.PageViewRoute> collapsed = new ArrayList<>();
+        com.krielwus.webtracinganalysis.entity.PageViewRoute last = null;
+        for (com.krielwus.webtracinganalysis.entity.PageViewRoute r : filtered) {
+            if (!collapseConsecutiveDuplicates) {
+                collapsed.add(r);
+                continue;
+            }
+            if (last == null) {
+                collapsed.add(r);
+                last = r;
+                continue;
+            }
+            String cur = r.getRoutePath();
+            String prev = last.getRoutePath();
+            if (cur != null && cur.equals(prev)) {
+                collapsed.set(collapsed.size() - 1, r);
+                last = r;
+            } else {
+                collapsed.add(r);
+                last = r;
+            }
+        }
+
+        if (collapsed.isEmpty())
+            return Collections.emptyList();
+
+        List<com.krielwus.webtracinganalysis.entity.PageViewRoute> pruned = new ArrayList<>(collapsed);
+        if (minStayMs > 0) {
+            boolean changed;
+            do {
+                changed = false;
+                if (pruned.size() <= 1)
+                    break;
+                List<Long> durations = new ArrayList<>();
+                for (int i = 0; i < pruned.size(); i++) {
+                    if (i == pruned.size() - 1) {
+                        durations.add(null);
+                    } else {
+                        long d = pruned.get(i + 1).getCreatedAt().getTime() - pruned.get(i).getCreatedAt().getTime();
+                        durations.add(Math.max(0, d));
+                    }
+                }
+                List<com.krielwus.webtracinganalysis.entity.PageViewRoute> next = new ArrayList<>();
+                for (int i = 0; i < pruned.size(); i++) {
+                    Long d = durations.get(i);
+                    if (d != null && d > 0 && d < minStayMs) {
+                        changed = true;
+                        continue;
+                    }
+                    next.add(pruned.get(i));
+                }
+                pruned = next;
+            } while (changed);
+        }
+
+        int take = Math.min(maxDepth, pruned.size());
+        List<com.krielwus.webtracinganalysis.entity.PageViewRoute> cut = pruned.subList(0, take);
+        List<SessionStep> out = new ArrayList<>();
+        for (int i = 0; i < cut.size(); i++) {
+            com.krielwus.webtracinganalysis.entity.PageViewRoute r = cut.get(i);
+            Long duration = null;
+            if (i < cut.size() - 1) {
+                long d = cut.get(i + 1).getCreatedAt().getTime() - r.getCreatedAt().getTime();
+                duration = Math.max(0, d);
+            }
+            out.add(new SessionStep(r.getCreatedAt(), r.getRoutePath(), r.getRouteType(), r.getRouteParams(),
+                    r.getFullUrl(), duration));
         }
         return out;
     }

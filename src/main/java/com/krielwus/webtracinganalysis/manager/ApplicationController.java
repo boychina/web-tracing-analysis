@@ -239,6 +239,12 @@ public class ApplicationController {
         String start = body.getString("startDate");
         String end = body.getString("endDate");
         Integer limit = body.getInteger("limitSessions");
+        Boolean collapse = body.getBoolean("collapseConsecutiveDuplicates");
+        Long minStayMs = body.getLong("minStayMs");
+        Integer maxDepth = body.getInteger("maxDepth");
+        java.util.List<String> ignoreRoutePatterns = body.getJSONArray("ignoreRoutePatterns") == null
+                ? null
+                : body.getJSONArray("ignoreRoutePatterns").toJavaList(String.class);
         if (appCode == null || appCode.trim().isEmpty()) return new ResultInfo(400, "appCode required");
         if (start == null || end == null) return new ResultInfo(400, "startDate/endDate required");
         try {
@@ -247,8 +253,51 @@ public class ApplicationController {
             java.time.LocalDate e = java.time.LocalDate.parse(end, fmt);
             if (s.isAfter(e)) return new ResultInfo(400, "date range invalid");
             int l = limit == null ? 50 : limit;
-            java.util.List<java.util.Map<String, Object>> list = service.listSessionPaths(appCode.trim(), s, e, l);
+            java.util.List<java.util.Map<String, Object>> list = service.listSessionPaths(appCode.trim(), s, e, l,
+                    collapse, minStayMs, ignoreRoutePatterns, maxDepth);
             return new ResultInfo(1000, "success", list);
+        } catch (java.time.format.DateTimeParseException ex) {
+            return new ResultInfo(400, "date format invalid");
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
+    @PostMapping("/monitor/sessionPaths/aggregate")
+    public ResultInfo sessionPathAggregate(@RequestBody JSONObject body) {
+        if (body == null)
+            return new ResultInfo(400, "body required");
+        String appCode = body.getString("appCode");
+        String start = body.getString("startDate");
+        String end = body.getString("endDate");
+        Integer limit = body.getInteger("limitSessions");
+        Integer topN = body.getInteger("topN");
+        String startRoutePath = body.getString("startRoutePath");
+        String groupBy = body.getString("groupBy");
+        String groupParamName = body.getString("groupParamName");
+        Integer maxGroups = body.getInteger("maxGroups");
+        Boolean collapse = body.getBoolean("collapseConsecutiveDuplicates");
+        Long minStayMs = body.getLong("minStayMs");
+        Integer maxDepth = body.getInteger("maxDepth");
+        java.util.List<String> ignoreRoutePatterns = body.getJSONArray("ignoreRoutePatterns") == null
+                ? null
+                : body.getJSONArray("ignoreRoutePatterns").toJavaList(String.class);
+        if (appCode == null || appCode.trim().isEmpty())
+            return new ResultInfo(400, "appCode required");
+        if (start == null || end == null)
+            return new ResultInfo(400, "startDate/endDate required");
+        try {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.LocalDate s = java.time.LocalDate.parse(start, fmt);
+            java.time.LocalDate e = java.time.LocalDate.parse(end, fmt);
+            if (s.isAfter(e))
+                return new ResultInfo(400, "date range invalid");
+            int l = limit == null ? 200 : limit;
+            int n = topN == null ? 20 : topN;
+            java.util.Map<String, Object> data = service.aggregateSessionPathPatterns(appCode.trim(), s, e, l, n,
+                    collapse, minStayMs,
+                    ignoreRoutePatterns, maxDepth, startRoutePath, groupBy, groupParamName, maxGroups);
+            return new ResultInfo(1000, "success", data);
         } catch (java.time.format.DateTimeParseException ex) {
             return new ResultInfo(400, "date format invalid");
         } catch (Exception e) {
@@ -260,7 +309,11 @@ public class ApplicationController {
     public ResultInfo sessionPathDetail(@RequestParam("appCode") String appCode,
                                         @RequestParam("sessionId") String sessionId,
                                         @RequestParam("startDate") String startDate,
-                                        @RequestParam("endDate") String endDate) {
+            @RequestParam("endDate") String endDate,
+            @RequestParam(value = "collapseConsecutiveDuplicates", required = false) Boolean collapse,
+            @RequestParam(value = "minStayMs", required = false) Long minStayMs,
+            @RequestParam(value = "maxDepth", required = false) Integer maxDepth,
+            @RequestParam(value = "ignoreRoutePatterns", required = false) String ignoreRoutePatterns) {
         if (appCode == null || appCode.trim().isEmpty()) return new ResultInfo(400, "appCode required");
         if (sessionId == null || sessionId.trim().isEmpty()) return new ResultInfo(400, "sessionId required");
         if (startDate == null || endDate == null) return new ResultInfo(400, "startDate/endDate required");
@@ -269,7 +322,13 @@ public class ApplicationController {
             java.time.LocalDate s = java.time.LocalDate.parse(startDate, fmt);
             java.time.LocalDate e = java.time.LocalDate.parse(endDate, fmt);
             if (s.isAfter(e)) return new ResultInfo(400, "date range invalid");
-            java.util.List<java.util.Map<String, Object>> list = service.getSessionPathDetail(appCode.trim(), sessionId.trim(), s, e);
+            java.util.List<String> ignoreList = null;
+            if (ignoreRoutePatterns != null && !ignoreRoutePatterns.trim().isEmpty()) {
+                ignoreList = java.util.Arrays.stream(ignoreRoutePatterns.split(","))
+                        .map(String::trim).filter(v -> !v.isEmpty()).collect(java.util.stream.Collectors.toList());
+            }
+            java.util.List<java.util.Map<String, Object>> list = service.getSessionPathDetail(appCode.trim(),
+                    sessionId.trim(), s, e, collapse, minStayMs, ignoreList, maxDepth);
             return new ResultInfo(1000, "success", list);
         } catch (java.time.format.DateTimeParseException ex) {
             return new ResultInfo(400, "date format invalid");
