@@ -138,6 +138,18 @@ public class ApplicationService {
         return tracingService.aggregatePagePVForApp(start, end, trim);
     }
 
+    public Map<String, Object> pageRouteVisits(String appCode, String routePath, LocalDate start, LocalDate end, int pageNo, int pageSize) {
+        return tracingService.pageRouteVisits(appCode, routePath, start, end, pageNo, pageSize);
+    }
+
+    public List<Map<String, Object>> listSessionPaths(String appCode, LocalDate start, LocalDate end, int limitSessions) {
+        return tracingService.listSessionPaths(appCode, start, end, limitSessions);
+    }
+
+    public List<Map<String, Object>> getSessionPathDetail(String appCode, String sessionId, LocalDate start, LocalDate end) {
+        return tracingService.getSessionPathDetail(appCode, sessionId, start, end);
+    }
+
     public List<Map<String, Object>> aggregateDailyUVForApp(LocalDate start, LocalDate end, String appCode) {
         return tracingService.aggregateDailyUVForApp(start, end, appCode);
     }

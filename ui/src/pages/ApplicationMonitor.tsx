@@ -5,12 +5,16 @@ import {
   Col,
   DatePicker,
   Input,
+  Drawer,
   Row,
   Segmented,
   Select,
   Skeleton,
   Space,
   Tooltip,
+  Table,
+  Typography,
+  Modal,
   message,
 } from "antd";
 import dayjs from "dayjs";
@@ -67,6 +71,8 @@ type ErrorItem = RecentErrorItem;
 type PagePvItem = {
   PAGE_URL: string;
   PV_NUM: number;
+  SESSION_NUM?: number;
+  USER_NUM?: number;
 };
 
 type ErrorTrendItem = {
@@ -141,6 +147,25 @@ function ApplicationMonitor() {
   const [pagePvRange, setPagePvRange] = useState<[DayjsValue, DayjsValue]>(
     getPresetRange("7d")
   );
+
+  const [pageRouteDrawerOpen, setPageRouteDrawerOpen] = useState(false);
+  const [currentRoutePath, setCurrentRoutePath] = useState<string>("");
+  const [routeVisitsLoading, setRouteVisitsLoading] = useState(false);
+  const [routeVisits, setRouteVisits] = useState<any[]>([]);
+  const [routeVisitsTotal, setRouteVisitsTotal] = useState(0);
+  const [routeVisitsPageNo, setRouteVisitsPageNo] = useState(1);
+  const [routeVisitsPageSize, setRouteVisitsPageSize] = useState(20);
+
+  const [sessionPathPreset, setSessionPathPreset] = useState<Preset>("7d");
+  const [sessionPathRange, setSessionPathRange] = useState<
+    [DayjsValue, DayjsValue]
+  >(getPresetRange("7d"));
+  const [sessionPathsLoading, setSessionPathsLoading] = useState(false);
+  const [sessionPaths, setSessionPaths] = useState<any[]>([]);
+  const [sessionDetailOpen, setSessionDetailOpen] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string>("");
+  const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
+  const [sessionDetailSteps, setSessionDetailSteps] = useState<any[]>([]);
   const [errorRange, setErrorRange] = useState<[DayjsValue, DayjsValue]>(
     getPresetRange("7d")
   );
@@ -395,6 +420,105 @@ function ApplicationMonitor() {
     }
   }
 
+  async function loadRouteVisits(
+    appCode: string,
+    routePath: string,
+    start: DayjsValue,
+    end: DayjsValue,
+    pageNo: number,
+    pageSize: number
+  ) {
+    try {
+      setRouteVisitsLoading(true);
+      const resp = await client.get("/application/monitor/pageRoute/visits", {
+        params: {
+          appCode,
+          routePath,
+          startDate: start.format("YYYY-MM-DD"),
+          endDate: end.format("YYYY-MM-DD"),
+          pageNo,
+          pageSize,
+        },
+      });
+      if (resp.data?.code === 1000 && resp.data.data) {
+        const data = resp.data.data;
+        setRouteVisits(Array.isArray(data.list) ? data.list : []);
+        setRouteVisitsTotal(
+          typeof data.total === "number" ? data.total : Number(data.total || 0)
+        );
+        setRouteVisitsPageNo(
+          typeof data.pageNo === "number" ? data.pageNo : Number(data.pageNo || 1)
+        );
+        setRouteVisitsPageSize(
+          typeof data.pageSize === "number"
+            ? data.pageSize
+            : Number(data.pageSize || pageSize)
+        );
+      } else {
+        setRouteVisits([]);
+        setRouteVisitsTotal(0);
+      }
+    } catch {
+      setRouteVisits([]);
+      setRouteVisitsTotal(0);
+    } finally {
+      setRouteVisitsLoading(false);
+    }
+  }
+
+  async function loadSessionPathsData(
+    appCode: string,
+    start: DayjsValue,
+    end: DayjsValue
+  ) {
+    try {
+      setSessionPathsLoading(true);
+      const resp = await client.post("/application/monitor/sessionPaths", {
+        appCode,
+        startDate: start.format("YYYY-MM-DD"),
+        endDate: end.format("YYYY-MM-DD"),
+        limitSessions: 100,
+      });
+      if (resp.data?.code === 1000) {
+        setSessionPaths(Array.isArray(resp.data.data) ? resp.data.data : []);
+      } else {
+        setSessionPaths([]);
+      }
+    } catch {
+      setSessionPaths([]);
+    } finally {
+      setSessionPathsLoading(false);
+    }
+  }
+
+  async function loadSessionDetail(
+    appCode: string,
+    sessionId: string,
+    start: DayjsValue,
+    end: DayjsValue
+  ) {
+    try {
+      setSessionDetailLoading(true);
+      const resp = await client.get("/application/monitor/sessionPaths/detail", {
+        params: {
+          appCode,
+          sessionId,
+          startDate: start.format("YYYY-MM-DD"),
+          endDate: end.format("YYYY-MM-DD"),
+        },
+      });
+      if (resp.data?.code === 1000) {
+        setSessionDetailSteps(Array.isArray(resp.data.data) ? resp.data.data : []);
+      } else {
+        setSessionDetailSteps([]);
+      }
+    } catch {
+      setSessionDetailSteps([]);
+    } finally {
+      setSessionDetailLoading(false);
+    }
+  }
+
   async function loadErrorTrendData(
     appCode: string,
     start: DayjsValue,
@@ -456,6 +580,7 @@ function ApplicationMonitor() {
       loadUvData(appCode, uvRange[0], uvRange[1]),
       loadPagePvData(appCode, pagePvRange[0], pagePvRange[1]),
       loadErrorTrendData(appCode, errorRange[0], errorRange[1]),
+      loadSessionPathsData(appCode, sessionPathRange[0], sessionPathRange[1]),
       loadErrors(appCode, 1, errorPageSize, nextFilters),
     ]);
   }
@@ -510,7 +635,10 @@ function ApplicationMonitor() {
           const first = Array.isArray(params) ? params[0] : params;
           const url = first?.axisValue || "";
           const val = first?.data ?? 0;
-          return `${url}<br/>PV: ${val}`;
+          const found = pagePv.find((p) => p.PAGE_URL === url);
+          const sessionNum = found?.SESSION_NUM ?? 0;
+          const userNum = found?.USER_NUM ?? 0;
+          return `${url}<br/>PV: ${val}<br/>会话数: ${sessionNum}<br/>用户数: ${userNum}`;
         },
       },
       xAxis: {
@@ -853,7 +981,25 @@ function ApplicationMonitor() {
         <Col span={12}>
           <Card title={pagePvTitle} bodyStyle={{ paddingTop: 0 }}>
             <Skeleton active loading={pagePvLoading} paragraph={{ rows: 8 }}>
-              <EChart option={pagePvOption} height={360} />
+              <EChart
+                option={pagePvOption}
+                height={360}
+                onChartClick={(params) => {
+                  const routePath = params?.name;
+                  if (!routePath || !currentApp) return;
+                  setCurrentRoutePath(String(routePath));
+                  setPageRouteDrawerOpen(true);
+                  setRouteVisitsPageNo(1);
+                  loadRouteVisits(
+                    currentApp,
+                    String(routePath),
+                    pagePvRange[0],
+                    pagePvRange[1],
+                    1,
+                    routeVisitsPageSize
+                  );
+                }}
+              />
             </Skeleton>
           </Card>
         </Col>
@@ -869,6 +1015,241 @@ function ApplicationMonitor() {
           </Card>
         </Col>
       </Row>
+
+      <Card
+        title={
+          <Space wrap align="center" size={8}>
+            <span style={{ fontWeight: 600 }}>会话路径分析</span>
+            <Segmented
+              value={sessionPathPreset}
+              onChange={(val) => {
+                const preset = val as Preset;
+                setSessionPathPreset(preset);
+                if (!currentApp) return;
+                if (preset !== "custom") {
+                  const r = getPresetRange(preset);
+                  setSessionPathRange(r);
+                  loadSessionPathsData(currentApp, r[0], r[1]);
+                }
+              }}
+              options={[
+                { label: "近7天", value: "7d" },
+                { label: "近1个月", value: "30d" },
+                { label: "近3个月", value: "90d" },
+                { label: "自定义", value: "custom" },
+              ]}
+              size="small"
+            />
+            {sessionPathPreset === "custom" && (
+              <RangePicker
+                allowClear={false}
+                value={sessionPathRange}
+                disabledDate={(current) => current && current > dayjs()}
+                onChange={(vals) => {
+                  if (!currentApp) return;
+                  if (vals && vals[0] && vals[1]) {
+                    setSessionPathRange([vals[0], vals[1]]);
+                    loadSessionPathsData(currentApp, vals[0], vals[1]);
+                  }
+                }}
+              />
+            )}
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                if (!currentApp) return;
+                loadSessionPathsData(currentApp, sessionPathRange[0], sessionPathRange[1]);
+              }}
+            >
+              刷新
+            </Button>
+          </Space>
+        }
+        style={{ marginTop: 16 }}
+      >
+        <Skeleton active loading={sessionPathsLoading} paragraph={{ rows: 6 }}>
+          <Table
+            rowKey="SESSION_ID"
+            dataSource={sessionPaths}
+            pagination={{ pageSize: 10 }}
+            columns={[
+              { title: "会话ID", dataIndex: "SESSION_ID", width: 220 },
+              { title: "用户", dataIndex: "SDK_USER_UUID", width: 180 },
+              { title: "设备", dataIndex: "DEVICE_ID", width: 160 },
+              { title: "开始时间", dataIndex: "FIRST_TIME", width: 180 },
+              { title: "结束时间", dataIndex: "LAST_TIME", width: 180 },
+              { title: "步数", dataIndex: "STEP_COUNT", width: 80 },
+              {
+                title: "路径",
+                dataIndex: "PATH",
+                render: (v: string) => (
+                  <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 520 }} >
+                    {v}
+                  </Typography.Text>
+                ),
+              },
+              {
+                title: "操作",
+                width: 100,
+                render: (_: any, row: any) => (
+                  <Button
+                    type="link"
+                    onClick={() => {
+                      if (!currentApp) return;
+                      setCurrentSessionId(row.SESSION_ID);
+                      setSessionDetailOpen(true);
+                      loadSessionDetail(
+                        currentApp,
+                        row.SESSION_ID,
+                        sessionPathRange[0],
+                        sessionPathRange[1]
+                      );
+                    }}
+                  >
+                    查看
+                  </Button>
+                ),
+              },
+            ]}
+          />
+        </Skeleton>
+      </Card>
+
+      <Drawer
+        title={`页面访问下钻：${currentRoutePath || "-"}`}
+        open={pageRouteDrawerOpen}
+        width={920}
+        onClose={() => setPageRouteDrawerOpen(false)}
+      >
+        <Table
+          rowKey={(_, idx) => String(idx)}
+          loading={routeVisitsLoading}
+          dataSource={routeVisits}
+          pagination={{
+            current: routeVisitsPageNo,
+            pageSize: routeVisitsPageSize,
+            total: routeVisitsTotal,
+            showSizeChanger: true,
+            showTotal: (t) => `共 ${t} 条`,
+          }}
+          onChange={(p) => {
+            if (!currentApp || !currentRoutePath) return;
+            const nextSize = p.pageSize || routeVisitsPageSize;
+            const nextNo =
+              p.pageSize && p.pageSize !== routeVisitsPageSize ? 1 : p.current || 1;
+            setRouteVisitsPageNo(nextNo);
+            setRouteVisitsPageSize(nextSize);
+            loadRouteVisits(
+              currentApp,
+              currentRoutePath,
+              pagePvRange[0],
+              pagePvRange[1],
+              nextNo,
+              nextSize
+            );
+          }}
+          columns={[
+            { title: "时间", dataIndex: "CREATED_AT", width: 180 },
+            { title: "会话ID", dataIndex: "SESSION_ID", width: 220 },
+            { title: "用户", dataIndex: "SDK_USER_UUID", width: 180 },
+            { title: "设备", dataIndex: "DEVICE_ID", width: 160 },
+            {
+              title: "参数",
+              dataIndex: "ROUTE_PARAMS",
+              render: (v: string) => (
+                <Button
+                  type="link"
+                  onClick={() => {
+                    Modal.info({
+                      title: "路由参数",
+                      width: 680,
+                      content: (
+                        <pre style={{ maxHeight: 520, overflow: "auto" }}>
+                          {(() => {
+                            try {
+                              return JSON.stringify(JSON.parse(v || "{}"), null, 2);
+                            } catch {
+                              return String(v || "");
+                            }
+                          })()}
+                        </pre>
+                      ),
+                    });
+                  }}
+                >
+                  查看
+                </Button>
+              ),
+            },
+            {
+              title: "完整URL",
+              dataIndex: "FULL_URL",
+              render: (v: string) => (
+                <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 260 }}>
+                  {v}
+                </Typography.Text>
+              ),
+            },
+          ]}
+        />
+      </Drawer>
+
+      <Drawer
+        title={`会话路径详情：${currentSessionId || "-"}`}
+        open={sessionDetailOpen}
+        width={820}
+        onClose={() => setSessionDetailOpen(false)}
+      >
+        <Table
+          rowKey={(_, idx) => String(idx)}
+          loading={sessionDetailLoading}
+          dataSource={sessionDetailSteps}
+          pagination={{ pageSize: 20 }}
+          columns={[
+            { title: "时间", dataIndex: "CREATED_AT", width: 180 },
+            { title: "路由", dataIndex: "ROUTE_PATH", width: 260 },
+            { title: "路由类型", dataIndex: "ROUTE_TYPE", width: 100 },
+            {
+              title: "参数",
+              dataIndex: "ROUTE_PARAMS",
+              render: (v: string) => (
+                <Button
+                  type="link"
+                  onClick={() => {
+                    Modal.info({
+                      title: "路由参数",
+                      width: 680,
+                      content: (
+                        <pre style={{ maxHeight: 520, overflow: "auto" }}>
+                          {(() => {
+                            try {
+                              return JSON.stringify(JSON.parse(v || "{}"), null, 2);
+                            } catch {
+                              return String(v || "");
+                            }
+                          })()}
+                        </pre>
+                      ),
+                    });
+                  }}
+                >
+                  查看
+                </Button>
+              ),
+            },
+            {
+              title: "完整URL",
+              dataIndex: "FULL_URL",
+              render: (v: string) => (
+                <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 260 }}>
+                  {v}
+                </Typography.Text>
+              ),
+            },
+          ]}
+        />
+      </Drawer>
 
       <Card
         title={

@@ -206,6 +206,78 @@ public class ApplicationController {
         }
     }
 
+    @GetMapping("/monitor/pageRoute/visits")
+    public ResultInfo pageRouteVisits(@RequestParam("appCode") String appCode,
+                                      @RequestParam("routePath") String routePath,
+                                      @RequestParam("startDate") String startDate,
+                                      @RequestParam("endDate") String endDate,
+                                      @RequestParam(value = "pageNo", required = false) Integer pageNo,
+                                      @RequestParam(value = "pageSize", required = false) Integer pageSize) {
+        if (appCode == null || appCode.trim().isEmpty()) return new ResultInfo(400, "appCode required");
+        if (routePath == null || routePath.trim().isEmpty()) return new ResultInfo(400, "routePath required");
+        if (startDate == null || endDate == null) return new ResultInfo(400, "startDate/endDate required");
+        try {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.LocalDate s = java.time.LocalDate.parse(startDate, fmt);
+            java.time.LocalDate e = java.time.LocalDate.parse(endDate, fmt);
+            if (s.isAfter(e)) return new ResultInfo(400, "date range invalid");
+            int p = pageNo == null ? 1 : pageNo;
+            int sz = pageSize == null ? 20 : pageSize;
+            java.util.Map<String, Object> data = service.pageRouteVisits(appCode.trim(), routePath.trim(), s, e, p, sz);
+            return new ResultInfo(1000, "success", data);
+        } catch (java.time.format.DateTimeParseException ex) {
+            return new ResultInfo(400, "date format invalid");
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
+    @PostMapping("/monitor/sessionPaths")
+    public ResultInfo sessionPaths(@RequestBody JSONObject body) {
+        if (body == null) return new ResultInfo(400, "body required");
+        String appCode = body.getString("appCode");
+        String start = body.getString("startDate");
+        String end = body.getString("endDate");
+        Integer limit = body.getInteger("limitSessions");
+        if (appCode == null || appCode.trim().isEmpty()) return new ResultInfo(400, "appCode required");
+        if (start == null || end == null) return new ResultInfo(400, "startDate/endDate required");
+        try {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.LocalDate s = java.time.LocalDate.parse(start, fmt);
+            java.time.LocalDate e = java.time.LocalDate.parse(end, fmt);
+            if (s.isAfter(e)) return new ResultInfo(400, "date range invalid");
+            int l = limit == null ? 50 : limit;
+            java.util.List<java.util.Map<String, Object>> list = service.listSessionPaths(appCode.trim(), s, e, l);
+            return new ResultInfo(1000, "success", list);
+        } catch (java.time.format.DateTimeParseException ex) {
+            return new ResultInfo(400, "date format invalid");
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
+    @GetMapping("/monitor/sessionPaths/detail")
+    public ResultInfo sessionPathDetail(@RequestParam("appCode") String appCode,
+                                        @RequestParam("sessionId") String sessionId,
+                                        @RequestParam("startDate") String startDate,
+                                        @RequestParam("endDate") String endDate) {
+        if (appCode == null || appCode.trim().isEmpty()) return new ResultInfo(400, "appCode required");
+        if (sessionId == null || sessionId.trim().isEmpty()) return new ResultInfo(400, "sessionId required");
+        if (startDate == null || endDate == null) return new ResultInfo(400, "startDate/endDate required");
+        try {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.LocalDate s = java.time.LocalDate.parse(startDate, fmt);
+            java.time.LocalDate e = java.time.LocalDate.parse(endDate, fmt);
+            if (s.isAfter(e)) return new ResultInfo(400, "date range invalid");
+            java.util.List<java.util.Map<String, Object>> list = service.getSessionPathDetail(appCode.trim(), sessionId.trim(), s, e);
+            return new ResultInfo(1000, "success", list);
+        } catch (java.time.format.DateTimeParseException ex) {
+            return new ResultInfo(400, "date format invalid");
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
     @PostMapping("/create")
     public ResultInfo create(@RequestBody JSONObject body, HttpSession session) {
         if (body == null) { return new ResultInfo(400, "body required"); }

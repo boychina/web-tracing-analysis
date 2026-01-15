@@ -7,7 +7,8 @@ import java.util.Date;
 @Table(name = "page_view_route", indexes = {
         @Index(name = "idx_pvr_appcode_created_at", columnList = "app_code, created_at"),
         @Index(name = "idx_pvr_appcode_route", columnList = "app_code, route_path"),
-        @Index(name = "idx_pvr_session_created_at", columnList = "session_id, created_at")
+        @Index(name = "idx_pvr_session_created_at", columnList = "session_id, created_at"),
+        @Index(name = "idx_pvr_appcode_user", columnList = "app_code, sdk_user_uuid")
 })
 public class PageViewRoute {
     @Id
@@ -22,6 +23,12 @@ public class PageViewRoute {
 
     @Column(name = "session_id", length = 128)
     private String sessionId;
+
+    @Column(name = "sdk_user_uuid", length = 128)
+    private String sdkUserUuid;
+
+    @Column(name = "device_id", length = 128)
+    private String deviceId;
 
     @Column(name = "route_type", length = 16)
     private String routeType;
@@ -54,6 +61,10 @@ public class PageViewRoute {
     public void setAppName(String appName) { this.appName = appName; }
     public String getSessionId() { return sessionId; }
     public void setSessionId(String sessionId) { this.sessionId = sessionId; }
+    public String getSdkUserUuid() { return sdkUserUuid; }
+    public void setSdkUserUuid(String sdkUserUuid) { this.sdkUserUuid = sdkUserUuid; }
+    public String getDeviceId() { return deviceId; }
+    public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
     public String getRouteType() { return routeType; }
     public void setRouteType(String routeType) { this.routeType = routeType; }
     public String getRoutePath() { return routePath; }

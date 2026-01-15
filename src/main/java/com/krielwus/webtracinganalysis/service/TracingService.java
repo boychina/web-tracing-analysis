@@ -154,11 +154,21 @@ public class TracingService {
                         eventRecords.add(te);
                         if ("PV".equalsIgnoreCase(te.getEventType())) {
                             String fullUrl = getString(e, "triggerPageUrl", "pageUrl", "URL", "PAGE_URL");
+                            String sdkUserUuid = getString(e, "sdkUserUuid", "SDK_USER_UUID");
+                            if (sdkUserUuid == null || sdkUserUuid.isEmpty()) {
+                                sdkUserUuid = base != null ? getString(base, "sdkUserUuid", "SDK_USER_UUID") : null;
+                            }
+                            String deviceId = getString(e, "deviceId", "DEVICE_ID");
+                            if (deviceId == null || deviceId.isEmpty()) {
+                                deviceId = base != null ? getString(base, "deviceId", "DEVICE_ID") : null;
+                            }
                             String[] parts = parsePageRoute(fullUrl);
                             com.krielwus.webtracinganalysis.entity.PageViewRoute pvr = new com.krielwus.webtracinganalysis.entity.PageViewRoute();
                             pvr.setAppCode(appCode);
                             pvr.setAppName(appName);
                             pvr.setSessionId(sessionId);
+                            pvr.setSdkUserUuid(sdkUserUuid);
+                            pvr.setDeviceId(deviceId);
                             pvr.setFullUrl(fullUrl);
                             pvr.setRouteType(parts[0]);
                             pvr.setRoutePath(parts[1]);
@@ -212,11 +222,21 @@ public class TracingService {
                 batch.add(te);
                 if ("PV".equalsIgnoreCase(te.getEventType())) {
                     String fullUrl = getString(e, "triggerPageUrl", "pageUrl", "URL", "PAGE_URL");
+                    String sdkUserUuid = getString(e, "sdkUserUuid", "SDK_USER_UUID");
+                    if (sdkUserUuid == null || sdkUserUuid.isEmpty()) {
+                        sdkUserUuid = base != null ? getString(base, "sdkUserUuid", "SDK_USER_UUID") : null;
+                    }
+                    String deviceId = getString(e, "deviceId", "DEVICE_ID");
+                    if (deviceId == null || deviceId.isEmpty()) {
+                        deviceId = base != null ? getString(base, "deviceId", "DEVICE_ID") : null;
+                    }
                     String[] parts = parsePageRoute(fullUrl);
                     com.krielwus.webtracinganalysis.entity.PageViewRoute pvr = new com.krielwus.webtracinganalysis.entity.PageViewRoute();
                     pvr.setAppCode(appCode);
                     pvr.setAppName(appName);
                     pvr.setSessionId(sessionId);
+                    pvr.setSdkUserUuid(sdkUserUuid);
+                    pvr.setDeviceId(deviceId);
                     pvr.setFullUrl(fullUrl);
                     pvr.setRouteType(parts[0]);
                     pvr.setRoutePath(parts[1]);
@@ -1233,7 +1253,121 @@ public class TracingService {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("PAGE_URL", String.valueOf(r[0]));
             row.put("PV_NUM", ((Number) r[1]).intValue());
+            row.put("SESSION_NUM", ((Number) r[2]).intValue());
+            row.put("USER_NUM", ((Number) r[3]).intValue());
             out.add(row);
+        }
+        return out;
+    }
+
+    public Map<String, Object> pageRouteVisits(String appCode, String routePath, LocalDate startDate, LocalDate endDate,
+            int pageNo, int pageSize) {
+        if (appCode == null || appCode.trim().isEmpty() || routePath == null || routePath.trim().isEmpty()) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("list", Collections.emptyList());
+            out.put("total", 0);
+            out.put("pageNo", 1);
+            out.put("pageSize", 20);
+            return out;
+        }
+        int p = pageNo < 1 ? 1 : pageNo;
+        int s = pageSize < 1 ? 20 : Math.min(pageSize, 200);
+        Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        org.springframework.data.domain.Page<com.krielwus.webtracinganalysis.entity.PageViewRoute> page = pageViewRouteRepository
+                .findByAppCodeAndRoutePathAndCreatedAtBetweenOrderByCreatedAtDesc(appCode.trim(), routePath.trim(),
+                        start, end,
+                        PageRequest.of(p - 1, s));
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (com.krielwus.webtracinganalysis.entity.PageViewRoute r : page.getContent()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("CREATED_AT", r.getCreatedAt());
+            m.put("SESSION_ID", r.getSessionId());
+            m.put("SDK_USER_UUID", r.getSdkUserUuid());
+            m.put("DEVICE_ID", r.getDeviceId());
+            m.put("ROUTE_PATH", r.getRoutePath());
+            m.put("ROUTE_TYPE", r.getRouteType());
+            m.put("ROUTE_PARAMS", r.getRouteParams());
+            m.put("FULL_URL", r.getFullUrl());
+            list.add(m);
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("list", list);
+        out.put("total", page.getTotalElements());
+        out.put("pageNo", p);
+        out.put("pageSize", s);
+        return out;
+    }
+
+    public List<Map<String, Object>> listSessionPaths(String appCode, LocalDate startDate, LocalDate endDate,
+            int limitSessions) {
+        if (appCode == null || appCode.trim().isEmpty())
+            return Collections.emptyList();
+        int limit = limitSessions < 1 ? 50 : Math.min(limitSessions, 200);
+        Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        List<String> sessionIds = pageViewRouteRepository.findRecentSessionIdsBetween(appCode.trim(), start, end,
+                PageRequest.of(0, limit));
+        if (sessionIds.isEmpty())
+            return Collections.emptyList();
+        List<com.krielwus.webtracinganalysis.entity.PageViewRoute> rows = pageViewRouteRepository
+                .findByAppCodeAndSessionIdsBetweenOrdered(appCode.trim(), sessionIds, start, end);
+        Map<String, List<com.krielwus.webtracinganalysis.entity.PageViewRoute>> bySession = new LinkedHashMap<>();
+        for (com.krielwus.webtracinganalysis.entity.PageViewRoute r : rows) {
+            if (r.getSessionId() == null || r.getSessionId().isEmpty())
+                continue;
+            bySession.computeIfAbsent(r.getSessionId(), k -> new ArrayList<>()).add(r);
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (String sid : sessionIds) {
+            List<com.krielwus.webtracinganalysis.entity.PageViewRoute> list = bySession.get(sid);
+            if (list == null || list.isEmpty())
+                continue;
+            List<String> steps = new ArrayList<>();
+            String last = null;
+            for (com.krielwus.webtracinganalysis.entity.PageViewRoute r : list) {
+                String cur = r.getRoutePath();
+                if (cur == null || cur.isEmpty())
+                    continue;
+                if (last == null || !last.equals(cur)) {
+                    steps.add(cur);
+                    last = cur;
+                }
+            }
+            com.krielwus.webtracinganalysis.entity.PageViewRoute first = list.get(0);
+            com.krielwus.webtracinganalysis.entity.PageViewRoute lastRow = list.get(list.size() - 1);
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("SESSION_ID", sid);
+            m.put("SDK_USER_UUID", first.getSdkUserUuid());
+            m.put("DEVICE_ID", first.getDeviceId());
+            m.put("FIRST_TIME", first.getCreatedAt());
+            m.put("LAST_TIME", lastRow.getCreatedAt());
+            m.put("STEP_COUNT", steps.size());
+            m.put("PATH", String.join(" -> ", steps));
+            out.add(m);
+        }
+        return out;
+    }
+
+    public List<Map<String, Object>> getSessionPathDetail(String appCode, String sessionId, LocalDate startDate,
+            LocalDate endDate) {
+        if (appCode == null || appCode.trim().isEmpty() || sessionId == null || sessionId.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        List<com.krielwus.webtracinganalysis.entity.PageViewRoute> rows = pageViewRouteRepository
+                .findByAppCodeAndSessionIdAndCreatedAtBetweenOrderByCreatedAtAsc(appCode.trim(), sessionId.trim(),
+                        start, end);
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (com.krielwus.webtracinganalysis.entity.PageViewRoute r : rows) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("CREATED_AT", r.getCreatedAt());
+            m.put("ROUTE_PATH", r.getRoutePath());
+            m.put("ROUTE_TYPE", r.getRouteType());
+            m.put("ROUTE_PARAMS", r.getRouteParams());
+            m.put("FULL_URL", r.getFullUrl());
+            out.add(m);
         }
         return out;
     }

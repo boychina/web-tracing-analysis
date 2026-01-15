@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS `page_view_route` (
   `app_code` VARCHAR(128) NULL,
   `app_name` VARCHAR(256) NULL,
   `session_id` VARCHAR(128) NULL,
+  `sdk_user_uuid` VARCHAR(128) NULL,
+  `device_id` VARCHAR(128) NULL,
   `route_type` VARCHAR(16) NULL,
   `route_path` VARCHAR(512) NULL,
   `route_params` LONGTEXT NULL,
@@ -32,7 +34,8 @@ CREATE TABLE IF NOT EXISTS `page_view_route` (
   PRIMARY KEY (`id`),
   KEY `idx_pvr_appcode_created_at` (`app_code`, `created_at`),
   KEY `idx_pvr_appcode_route` (`app_code`, `route_path`),
-  KEY `idx_pvr_session_created_at` (`session_id`, `created_at`)
+  KEY `idx_pvr_session_created_at` (`session_id`, `created_at`),
+  KEY `idx_pvr_appcode_user` (`app_code`, `sdk_user_uuid`)
  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='页面访问按路由拆解归档';
 
 -- 基线信息表：保存每次上报的基础环境信息的原始 JSON

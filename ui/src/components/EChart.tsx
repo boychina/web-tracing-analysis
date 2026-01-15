@@ -4,9 +4,10 @@ import * as echarts from "echarts";
 type Props = {
   option: echarts.EChartsCoreOption;
   height?: number;
+  onChartClick?: (params: any) => void;
 };
 
-function EChart({ option, height = 360 }: Props) {
+function EChart({ option, height = 360, onChartClick }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<echarts.ECharts | null>(null);
 
@@ -31,8 +32,20 @@ function EChart({ option, height = 360 }: Props) {
     instanceRef.current.resize();
   }, [option]);
 
+  useEffect(() => {
+    const instance = instanceRef.current;
+    if (!instance) return;
+    if (!onChartClick) return;
+    const handler = (params: any) => {
+      onChartClick(params);
+    };
+    instance.on("click", handler);
+    return () => {
+      instance.off("click", handler);
+    };
+  }, [onChartClick]);
+
   return <div ref={containerRef} style={{ width: "100%", height }} />;
 }
 
 export default EChart;
-
