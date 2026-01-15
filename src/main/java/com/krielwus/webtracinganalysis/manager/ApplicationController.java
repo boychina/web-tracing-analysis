@@ -305,6 +305,41 @@ public class ApplicationController {
         }
     }
 
+    @PostMapping("/monitor/sessionPaths/sankey")
+    public ResultInfo sessionPathSankey(@RequestBody JSONObject body) {
+        if (body == null)
+            return new ResultInfo(400, "body required");
+        String appCode = body.getString("appCode");
+        String start = body.getString("startDate");
+        String end = body.getString("endDate");
+        Integer limit = body.getInteger("limitSessions");
+        Boolean collapse = body.getBoolean("collapseConsecutiveDuplicates");
+        Long minStayMs = body.getLong("minStayMs");
+        Integer maxDepth = body.getInteger("maxDepth");
+        String startRoutePath = body.getString("startRoutePath");
+        java.util.List<String> ignoreRoutePatterns = body.getJSONArray("ignoreRoutePatterns") == null
+                ? null
+                : body.getJSONArray("ignoreRoutePatterns").toJavaList(String.class);
+        if (appCode == null || appCode.trim().isEmpty())
+            return new ResultInfo(400, "appCode required");
+        if (start == null || end == null)
+            return new ResultInfo(400, "startDate/endDate required");
+        try {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.LocalDate s = java.time.LocalDate.parse(start, fmt);
+            java.time.LocalDate e = java.time.LocalDate.parse(end, fmt);
+            if (s.isAfter(e))
+                return new ResultInfo(400, "date range invalid");
+            int l = limit == null ? 1000 : limit;
+            java.util.Map<String, Object> data = service.aggregateSessionSankey(appCode.trim(), s, e, l, collapse,
+                    minStayMs, ignoreRoutePatterns, maxDepth, startRoutePath);
+            return new ResultInfo(1000, "success", data);
+        } catch (java.time.format.DateTimeParseException ex) {
+            return new ResultInfo(400, "date format invalid");
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
     @GetMapping("/monitor/sessionPaths/detail")
     public ResultInfo sessionPathDetail(@RequestParam("appCode") String appCode,
                                         @RequestParam("sessionId") String sessionId,

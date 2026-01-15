@@ -7,6 +7,8 @@ import MainLayout from "./layouts/MainLayout";
 import AnalysisDashboard from "./pages/AnalysisDashboard";
 import ApplicationManagement from "./pages/ApplicationManagement";
 import ApplicationMonitor from "./pages/ApplicationMonitor";
+import ErrorAnalysis from "./pages/ErrorAnalysis";
+import PathAnalysis from "./pages/PathAnalysis";
 import UserManagement from "./pages/UserManagement";
 import UserBehaviorAnalysis from "./pages/UserBehaviorAnalysis";
 import { WebTracingProvider } from "@web-tracing/react";
@@ -45,6 +47,14 @@ function App() {
             <Route
               path="application/monitor"
               element={<ApplicationMonitor />}
+            />
+            <Route
+              path="application/monitor/errors"
+              element={<ErrorAnalysis />}
+            />
+            <Route
+              path="application/monitor/paths"
+              element={<PathAnalysis />}
             />
             <Route path="user" element={<UserManagement />} />
             <Route path="*" element={<Placeholder />} />

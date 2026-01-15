@@ -1640,6 +1640,87 @@ public class TracingService {
         }
     }
 
+    public Map<String, Object> aggregateSessionSankey(String appCode, LocalDate startDate, LocalDate endDate,
+            int limitSessions,
+            Boolean collapseConsecutiveDuplicates,
+            Long minStayMs,
+            List<String> ignoreRoutePatterns,
+            Integer maxDepth,
+            String startRoutePath) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("nodes", Collections.emptyList());
+        out.put("links", Collections.emptyList());
+        if (appCode == null || appCode.trim().isEmpty())
+            return out;
+        boolean collapse = collapseConsecutiveDuplicates == null
+                ? sessionPathProperties.isCollapseConsecutiveDuplicates()
+                : collapseConsecutiveDuplicates;
+        long minStay = minStayMs == null ? sessionPathProperties.getMinStayMs() : Math.max(0, minStayMs);
+        int depth = maxDepth == null ? sessionPathProperties.getMaxDepth() : Math.max(1, maxDepth);
+        int limit = limitSessions < 1 ? sessionPathProperties.getDefaultLimitSessions() : Math.min(limitSessions, 5000);
+        Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        List<String> sessionIds = pageViewRouteRepository.findRecentSessionIdsBetween(appCode.trim(), start, end,
+                PageRequest.of(0, limit));
+        if (sessionIds.isEmpty())
+            return out;
+        List<com.krielwus.webtracinganalysis.entity.PageViewRoute> rows = pageViewRouteRepository
+                .findByAppCodeAndSessionIdsBetweenOrdered(appCode.trim(), sessionIds, start, end);
+        Map<String, List<com.krielwus.webtracinganalysis.entity.PageViewRoute>> bySession = new LinkedHashMap<>();
+        for (com.krielwus.webtracinganalysis.entity.PageViewRoute r : rows) {
+            if (r.getSessionId() == null || r.getSessionId().isEmpty())
+                continue;
+            bySession.computeIfAbsent(r.getSessionId(), k -> new ArrayList<>()).add(r);
+        }
+        Map<String, Integer> nodeIndex = new LinkedHashMap<>();
+        List<Map<String, Object>> nodes = new ArrayList<>();
+        Map<String, Long> linkCount = new HashMap<>();
+        for (String sid : sessionIds) {
+            List<com.krielwus.webtracinganalysis.entity.PageViewRoute> list = bySession.get(sid);
+            if (list == null || list.isEmpty())
+                continue;
+            List<SessionStep> steps = buildSessionSteps(list, collapse, minStay, ignoreRoutePatterns, 1000);
+            if (steps.isEmpty())
+                continue;
+            List<SessionStep> sliced = applyStartRouteAndDepth(steps, startRoutePath, depth);
+            if (sliced.isEmpty())
+                continue;
+            for (int i = 0; i < sliced.size() - 1; i++) {
+                String a = sliced.get(i).routePath;
+                String b = sliced.get(i + 1).routePath;
+                if (a == null || a.isEmpty() || b == null || b.isEmpty())
+                    continue;
+                String key = a + "||" + b;
+                linkCount.put(key, linkCount.getOrDefault(key, 0L) + 1L);
+            }
+        }
+        Set<String> allNodes = new LinkedHashSet<>();
+        for (String k : linkCount.keySet()) {
+            String[] ab = k.split("\\|\\|");
+            allNodes.add(ab[0]);
+            allNodes.add(ab[1]);
+        }
+        int idx = 0;
+        for (String name : allNodes) {
+            nodeIndex.put(name, idx++);
+            Map<String, Object> n = new LinkedHashMap<>();
+            n.put("name", name);
+            nodes.add(n);
+        }
+        List<Map<String, Object>> links = new ArrayList<>();
+        for (Map.Entry<String, Long> en : linkCount.entrySet()) {
+            String[] ab = en.getKey().split("\\|\\|");
+            Map<String, Object> l = new LinkedHashMap<>();
+            l.put("source", ab[0]);
+            l.put("target", ab[1]);
+            l.put("value", en.getValue());
+            links.add(l);
+        }
+        out.put("nodes", nodes);
+        out.put("links", links);
+        return out;
+    }
+
     private static class SessionStep {
         private final Date createdAt;
         private final String routePath;

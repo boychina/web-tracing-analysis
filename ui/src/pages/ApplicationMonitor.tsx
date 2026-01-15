@@ -1127,7 +1127,10 @@ function ApplicationMonitor() {
               loading={errorTrendLoading}
               paragraph={{ rows: 8 }}
             >
-              <EChart option={errorOption} height={360} />
+              <EChart option={errorOption} height={360} onChartClick={() => {
+                if (!currentApp) return;
+                window.open(`/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`, "_self");
+              }} />
             </Skeleton>
           </Card>
         </Col>
@@ -1273,6 +1276,129 @@ function ApplicationMonitor() {
       <Card
         title={
           <Space wrap align="center" size={8}>
+            <span style={{ fontWeight: 600 }}>行为路径快照</span>
+            <Input
+              size="small"
+              style={{ width: 220 }}
+              placeholder="起始页路由，如 /home"
+              value={funnelStartRoutePath}
+              onChange={(e) => setFunnelStartRoutePath(e.target.value)}
+            />
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                if (!currentApp) return;
+                loadSessionPathAggregateData(
+                  currentApp,
+                  sessionPathRange[0],
+                  sessionPathRange[1]
+                );
+              }}
+            >
+              更新快照
+            </Button>
+            <Button
+              type="link"
+              onClick={() => {
+                if (!currentApp) return;
+                window.open(`/application/monitor/paths?appCode=${encodeURIComponent(currentApp)}`, "_self");
+              }}
+            >
+              查看完整分析
+            </Button>
+          </Space>
+        }
+        style={{ marginTop: 16 }}
+      >
+        {(() => {
+          const step1Count = funnelRows
+            .filter((r) => Number(r.STEP) === 1)
+            .reduce((acc, r) => acc + Number(r.COUNT || 0), 0);
+          const topStep2 = funnelRows
+            .filter((r) => Number(r.STEP) === 2)
+            .sort((a, b) => Number(b.COUNT || 0) - Number(a.COUNT || 0))[0];
+          const topStep3 = funnelRows
+            .filter((r) => Number(r.STEP) === 3)
+            .sort((a, b) => Number(b.COUNT || 0) - Number(a.COUNT || 0))[0];
+          const conv2 =
+            step1Count > 0 ? Math.round((Number(topStep2?.COUNT || 0) * 100) / step1Count) : 0;
+          const conv3 =
+            step1Count > 0 ? Math.round((Number(topStep3?.COUNT || 0) * 100) / step1Count) : 0;
+          return (
+            <Row gutter={16}>
+              <Col xs={24} md={8}>
+                <Card>
+                  <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                    <div style={{ fontWeight: 600 }}>
+                      起始页（{funnelStartRoutePath || "未指定"}）
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700 }}>100%</div>
+                    <div
+                      style={{
+                        height: 8,
+                        background: "#1677ff",
+                        borderRadius: 4,
+                        width: "100%",
+                      }}
+                    />
+                  </Space>
+                </Card>
+              </Col>
+              <Col xs={24} md={8}>
+                <Card>
+                  <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                    <div style={{ fontWeight: 600 }}>
+                      {topStep2?.ROUTE_PATH || "下一步"}
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700 }}>{conv2}%</div>
+                    <div
+                      style={{
+                        height: 8,
+                        background:
+                          "linear-gradient(90deg, #1677ff 0%, #1677ff " +
+                          conv2 +
+                          "%, #e6f4ff " +
+                          conv2 +
+                          "%, #e6f4ff 100%)",
+                        borderRadius: 4,
+                        width: "100%",
+                      }}
+                    />
+                  </Space>
+                </Card>
+              </Col>
+              <Col xs={24} md={8}>
+                <Card>
+                  <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                    <div style={{ fontWeight: 600 }}>
+                      {topStep3?.ROUTE_PATH || "后续一步"}
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 700 }}>{conv3}%</div>
+                    <div
+                      style={{
+                        height: 8,
+                        background:
+                          "linear-gradient(90deg, #1677ff 0%, #1677ff " +
+                          conv3 +
+                          "%, #e6f4ff " +
+                          conv3 +
+                          "%, #e6f4ff 100%)",
+                        borderRadius: 4,
+                        width: "100%",
+                      }}
+                    />
+                  </Space>
+                </Card>
+              </Col>
+            </Row>
+          );
+        })()}
+      </Card>
+
+      <Card
+        title={
+          <Space wrap align="center" size={8}>
             <span style={{ fontWeight: 600 }}>
               路径聚类 / Top 路径漏斗
             </span>
@@ -1332,6 +1458,7 @@ function ApplicationMonitor() {
           </Space>
         }
         style={{ marginTop: 16 }}
+        data-anchor="funnel-aggregate"
       >
         <Skeleton active loading={pathAggLoading} paragraph={{ rows: 8 }}>
           <Row gutter={16}>

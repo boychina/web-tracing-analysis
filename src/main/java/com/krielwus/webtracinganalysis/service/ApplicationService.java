@@ -177,10 +177,17 @@ public class ApplicationService {
             int limitSessions, int topN,
             Boolean collapseConsecutiveDuplicates, Long minStayMs, java.util.List<String> ignoreRoutePatterns,
             Integer maxDepth,
-            String startRoutePath, String groupBy, String groupParamName, Integer maxGroups) {
+                    String startRoutePath, String groupBy, String groupParamName, Integer maxGroups) {
         return tracingService.aggregateSessionPathPatterns(appCode, start, end, limitSessions, topN,
                 collapseConsecutiveDuplicates,
-                minStayMs, ignoreRoutePatterns, maxDepth, startRoutePath, groupBy, groupParamName, maxGroups);
+                        minStayMs, ignoreRoutePatterns, maxDepth, startRoutePath, groupBy, groupParamName, maxGroups);
+    }
+
+    public Map<String, Object> aggregateSessionSankey(String appCode, LocalDate start, LocalDate end,
+            int limitSessions, Boolean collapseConsecutiveDuplicates, Long minStayMs,
+            java.util.List<String> ignoreRoutePatterns, Integer maxDepth, String startRoutePath) {
+        return tracingService.aggregateSessionSankey(appCode, start, end, limitSessions, collapseConsecutiveDuplicates,
+                minStayMs, ignoreRoutePatterns, maxDepth, startRoutePath);
     }
 
     public List<Map<String, Object>> aggregateDailyUVForApp(LocalDate start, LocalDate end, String appCode) {
