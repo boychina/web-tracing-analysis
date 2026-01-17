@@ -190,6 +190,7 @@ function ApplicationMonitor() {
   const [errorRange, setErrorRange] = useState<[DayjsValue, DayjsValue]>(
     getPresetRange("7d")
   );
+  const [errorLast24h, setErrorLast24h] = useState(0);
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -658,12 +659,21 @@ function ApplicationMonitor() {
           };
         });
         setErrorTrend(mapped);
+        try {
+          const today = dayjs().format("YYYY-MM-DD");
+          const todayVal = mapped.find((d) => d.DATETIME === today)?.ERROR_NUM || 0;
+          setErrorLast24h(Number(todayVal || 0));
+        } catch {
+          setErrorLast24h(0);
+        }
       } else {
         setErrorTrend(dates.map((d) => ({ DATETIME: d, ERROR_NUM: 0 })));
+        setErrorLast24h(0);
       }
     } catch {
       message.error("加载错误趋势失败");
       setErrorTrend(dates.map((d) => ({ DATETIME: d, ERROR_NUM: 0 })));
+      setErrorLast24h(0);
     } finally {
       setErrorTrendLoading(false);
     }
@@ -1034,6 +1044,9 @@ function ApplicationMonitor() {
             title="日活跃用户（DAU）"
             value={dailyBase ? dailyBase.USER_COUNT : 0}
             footer={`历史用户数: ${allBase ? allBase.USER_COUNT : 0}`}
+            trendData={uvList.map((d) => d.COUNT)}
+            status={uvList.length > 1 && uvList[uvList.length - 1].COUNT >= uvList[uvList.length - 2].COUNT ? "up" : "down"}
+            statusText={uvList.length > 1 && uvList[uvList.length - 1].COUNT >= uvList[uvList.length - 2].COUNT ? "正" : "下降"}
           />
         </Col>
         <Col xs={24} md={4}>
@@ -1066,6 +1079,9 @@ function ApplicationMonitor() {
             title="页面访问量（PV）"
             value={dailyBase ? dailyBase.PV_NUM : 0}
             footer={`历史浏览数: ${allBase ? allBase.PV_NUM : 0}`}
+            trendData={dailyList.map((d) => d.PV_NUM)}
+            status={dailyList.length > 1 && dailyList[dailyList.length - 1].PV_NUM >= dailyList[dailyList.length - 2].PV_NUM ? "up" : "down"}
+            statusText={dailyList.length > 1 && dailyList[dailyList.length - 1].PV_NUM >= dailyList[dailyList.length - 2].PV_NUM ? "正" : "下降"}
           />
         </Col>
         <Col xs={24} md={4}>
@@ -1074,6 +1090,9 @@ function ApplicationMonitor() {
             title="日上报错误"
             value={dailyBase ? dailyBase.ERROR_NUM || 0 : 0}
             footer={`历史错误数: ${allBase ? allBase.ERROR_NUM || 0 : 0}`}
+            trendData={errorTrend.map((d) => d.ERROR_NUM)}
+            status={errorTrend.length > 1 && errorTrend[errorTrend.length - 1].ERROR_NUM > errorTrend[errorTrend.length - 2].ERROR_NUM ? "warn" : "down"}
+            statusText={errorTrend.length > 1 && errorTrend[errorTrend.length - 1].ERROR_NUM > errorTrend[errorTrend.length - 2].ERROR_NUM ? "预警" : "下降"}
           />
         </Col>
       </Row>
@@ -1086,7 +1105,14 @@ function ApplicationMonitor() {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title={uvTitle} bodyStyle={{ paddingTop: 0 }}>
+          <Card title={uvTitle} bodyStyle={{ paddingTop: 0 }} extra={
+            <Button size="small" onClick={() => {
+              if (!currentApp) return;
+              window.open(`/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`, "_self");
+            }}>
+              近24小时异常 {errorLast24h}
+            </Button>
+          }>
             <Skeleton active loading={uvLoading} paragraph={{ rows: 8 }}>
               <EChart option={uvOption} height={360} />
             </Skeleton>
