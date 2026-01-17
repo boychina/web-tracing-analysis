@@ -5,18 +5,12 @@ import {
   Col,
   DatePicker,
   Input,
-  Drawer,
   Row,
   Segmented,
   Select,
-  Switch,
-  InputNumber,
   Skeleton,
   Space,
   Tooltip,
-  Table,
-  Typography,
-  Modal,
   message,
 } from "antd";
 import dayjs from "dayjs";
@@ -150,43 +144,8 @@ function ApplicationMonitor() {
     getPresetRange("7d")
   );
 
-  const [pageRouteDrawerOpen, setPageRouteDrawerOpen] = useState(false);
-  const [currentRoutePath, setCurrentRoutePath] = useState<string>("");
-  const [routeVisitsLoading, setRouteVisitsLoading] = useState(false);
-  const [routeVisits, setRouteVisits] = useState<any[]>([]);
-  const [routeVisitsTotal, setRouteVisitsTotal] = useState(0);
-  const [routeVisitsPageNo, setRouteVisitsPageNo] = useState(1);
-  const [routeVisitsPageSize, setRouteVisitsPageSize] = useState(20);
-
-  const [sessionPathPreset, setSessionPathPreset] = useState<Preset>("7d");
-  const [sessionPathRange, setSessionPathRange] = useState<
-    [DayjsValue, DayjsValue]
-  >(getPresetRange("7d"));
-  const [sessionPathsLoading, setSessionPathsLoading] = useState(false);
-  const [sessionPaths, setSessionPaths] = useState<any[]>([]);
-  const [sessionDetailOpen, setSessionDetailOpen] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState<string>("");
-  const [sessionDetailLoading, setSessionDetailLoading] = useState(false);
-  const [sessionDetailSteps, setSessionDetailSteps] = useState<any[]>([]);
-
-  const [pathCollapseDuplicates, setPathCollapseDuplicates] = useState(true);
-  const [pathMinStayMs, setPathMinStayMs] = useState<number>(0);
-  const [pathMaxDepth, setPathMaxDepth] = useState<number>(20);
-  const [pathIgnorePatterns, setPathIgnorePatterns] = useState<string>("");
-
-  const [pathAggLoading, setPathAggLoading] = useState(false);
-  const [pathAggSessionCount, setPathAggSessionCount] = useState(0);
-  const [topPathPatterns, setTopPathPatterns] = useState<any[]>([]);
   const [funnelRows, setFunnelRows] = useState<any[]>([]);
-  const [funnelGroups, setFunnelGroups] = useState<any[]>([]);
-  const [activeFunnelGroupKey, setActiveFunnelGroupKey] = useState<string>("ALL");
   const [funnelStartRoutePath, setFunnelStartRoutePath] = useState<string>("");
-  const [funnelGroupBy, setFunnelGroupBy] = useState<"NONE" | "USER" | "PARAM">(
-    "NONE"
-  );
-  const [funnelGroupParamName, setFunnelGroupParamName] = useState<string>(
-    "channel"
-  );
   const [errorRange, setErrorRange] = useState<[DayjsValue, DayjsValue]>(
     getPresetRange("7d")
   );
@@ -442,86 +401,9 @@ function ApplicationMonitor() {
     }
   }
 
-  async function loadRouteVisits(
-    appCode: string,
-    routePath: string,
-    start: DayjsValue,
-    end: DayjsValue,
-    pageNo: number,
-    pageSize: number
-  ) {
-    try {
-      setRouteVisitsLoading(true);
-      const resp = await client.get("/application/monitor/pageRoute/visits", {
-        params: {
-          appCode,
-          routePath,
-          startDate: start.format("YYYY-MM-DD"),
-          endDate: end.format("YYYY-MM-DD"),
-          pageNo,
-          pageSize,
-        },
-      });
-      if (resp.data?.code === 1000 && resp.data.data) {
-        const data = resp.data.data;
-        setRouteVisits(Array.isArray(data.list) ? data.list : []);
-        setRouteVisitsTotal(
-          typeof data.total === "number" ? data.total : Number(data.total || 0)
-        );
-        setRouteVisitsPageNo(
-          typeof data.pageNo === "number" ? data.pageNo : Number(data.pageNo || 1)
-        );
-        setRouteVisitsPageSize(
-          typeof data.pageSize === "number"
-            ? data.pageSize
-            : Number(data.pageSize || pageSize)
-        );
-      } else {
-        setRouteVisits([]);
-        setRouteVisitsTotal(0);
-      }
-    } catch {
-      setRouteVisits([]);
-      setRouteVisitsTotal(0);
-    } finally {
-      setRouteVisitsLoading(false);
-    }
-  }
+  // 页面访问下钻功能按设计图移除
 
-  async function loadSessionPathsData(
-    appCode: string,
-    start: DayjsValue,
-    end: DayjsValue
-  ) {
-    try {
-      setSessionPathsLoading(true);
-      const ignoreRoutePatterns = pathIgnorePatterns
-        ? pathIgnorePatterns
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : [];
-      const resp = await client.post("/application/monitor/sessionPaths", {
-        appCode,
-        startDate: start.format("YYYY-MM-DD"),
-        endDate: end.format("YYYY-MM-DD"),
-        limitSessions: 200,
-        collapseConsecutiveDuplicates: pathCollapseDuplicates,
-        minStayMs: pathMinStayMs || 0,
-        maxDepth: pathMaxDepth || 20,
-        ignoreRoutePatterns,
-      });
-      if (resp.data?.code === 1000) {
-        setSessionPaths(Array.isArray(resp.data.data) ? resp.data.data : []);
-      } else {
-        setSessionPaths([]);
-      }
-    } catch {
-      setSessionPaths([]);
-    } finally {
-      setSessionPathsLoading(false);
-    }
-  }
+  // 会话列表分析按设计图移除
 
   async function loadSessionPathAggregateData(
     appCode: string,
@@ -529,112 +411,34 @@ function ApplicationMonitor() {
     end: DayjsValue
   ) {
     try {
-      setPathAggLoading(true);
-      const ignoreRoutePatterns = pathIgnorePatterns
-        ? pathIgnorePatterns
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : [];
       const resp = await client.post("/application/monitor/sessionPaths/aggregate", {
         appCode,
         startDate: start.format("YYYY-MM-DD"),
         endDate: end.format("YYYY-MM-DD"),
         limitSessions: 1000,
-        topN: 30,
-        collapseConsecutiveDuplicates: pathCollapseDuplicates,
-        minStayMs: pathMinStayMs || 0,
-        maxDepth: pathMaxDepth || 20,
-        ignoreRoutePatterns,
         startRoutePath: funnelStartRoutePath?.trim() || undefined,
-        groupBy: funnelGroupBy,
-        groupParamName:
-          funnelGroupBy === "PARAM" ? funnelGroupParamName?.trim() : undefined,
-        maxGroups: 20,
       });
       if (resp.data?.code === 1000 && resp.data.data) {
-        setPathAggSessionCount(
-          typeof resp.data.data.sessionCount === "number"
-            ? resp.data.data.sessionCount
-            : Number(resp.data.data.sessionCount || 0)
-        );
         const groups = Array.isArray(resp.data.data.groups)
           ? resp.data.data.groups
           : [];
-        setFunnelGroups(groups);
         if (groups.length > 0) {
           const first = groups[0];
-          setActiveFunnelGroupKey(String(first.GROUP_KEY ?? "ALL"));
-          setTopPathPatterns(Array.isArray(first.topPaths) ? first.topPaths : []);
           setFunnelRows(Array.isArray(first.funnel) ? first.funnel : []);
         } else {
-          setActiveFunnelGroupKey("ALL");
-          setTopPathPatterns(
-            Array.isArray(resp.data.data.topPaths) ? resp.data.data.topPaths : []
-          );
           setFunnelRows(Array.isArray(resp.data.data.funnel) ? resp.data.data.funnel : []);
         }
       } else {
-        setPathAggSessionCount(0);
-        setTopPathPatterns([]);
         setFunnelRows([]);
-        setFunnelGroups([]);
-        setActiveFunnelGroupKey("ALL");
       }
     } catch {
-      setPathAggSessionCount(0);
-      setTopPathPatterns([]);
-      setFunnelRows([]);
-      setFunnelGroups([]);
-      setActiveFunnelGroupKey("ALL");
-    } finally {
-      setPathAggLoading(false);
-    }
-  }
-
-  function applyFunnelGroup(key: string) {
-    const hit = funnelGroups.find((g) => String(g.GROUP_KEY) === key);
-    setActiveFunnelGroupKey(key);
-    if (hit) {
-      setTopPathPatterns(Array.isArray(hit.topPaths) ? hit.topPaths : []);
-      setFunnelRows(Array.isArray(hit.funnel) ? hit.funnel : []);
-    } else {
-      setTopPathPatterns([]);
       setFunnelRows([]);
     }
   }
 
-  async function loadSessionDetail(
-    appCode: string,
-    sessionId: string,
-    start: DayjsValue,
-    end: DayjsValue
-  ) {
-    try {
-      setSessionDetailLoading(true);
-      const resp = await client.get("/application/monitor/sessionPaths/detail", {
-        params: {
-          appCode,
-          sessionId,
-          startDate: start.format("YYYY-MM-DD"),
-          endDate: end.format("YYYY-MM-DD"),
-          collapseConsecutiveDuplicates: pathCollapseDuplicates,
-          minStayMs: pathMinStayMs || 0,
-          maxDepth: pathMaxDepth || 20,
-          ignoreRoutePatterns: pathIgnorePatterns || undefined,
-        },
-      });
-      if (resp.data?.code === 1000) {
-        setSessionDetailSteps(Array.isArray(resp.data.data) ? resp.data.data : []);
-      } else {
-        setSessionDetailSteps([]);
-      }
-    } catch {
-      setSessionDetailSteps([]);
-    } finally {
-      setSessionDetailLoading(false);
-    }
-  }
+  // 分组切换按设计图移除
+
+  // 会话详情下钻按设计图移除
 
   async function loadErrorTrendData(
     appCode: string,
@@ -706,8 +510,7 @@ function ApplicationMonitor() {
       loadUvData(appCode, uvRange[0], uvRange[1]),
       loadPagePvData(appCode, pagePvRange[0], pagePvRange[1]),
       loadErrorTrendData(appCode, errorRange[0], errorRange[1]),
-      loadSessionPathsData(appCode, sessionPathRange[0], sessionPathRange[1]),
-      loadSessionPathAggregateData(appCode, sessionPathRange[0], sessionPathRange[1]),
+      loadSessionPathAggregateData(appCode, pvRange[0], pvRange[1]),
       loadErrors(appCode, 1, errorPageSize, nextFilters),
     ]);
   }
@@ -1124,25 +927,7 @@ function ApplicationMonitor() {
         <Col span={12}>
           <Card title={pagePvTitle} bodyStyle={{ paddingTop: 0 }}>
             <Skeleton active loading={pagePvLoading} paragraph={{ rows: 8 }}>
-              <EChart
-                option={pagePvOption}
-                height={360}
-                onChartClick={(params) => {
-                  const routePath = params?.name;
-                  if (!routePath || !currentApp) return;
-                  setCurrentRoutePath(String(routePath));
-                  setPageRouteDrawerOpen(true);
-                  setRouteVisitsPageNo(1);
-                  loadRouteVisits(
-                    currentApp,
-                    String(routePath),
-                    pagePvRange[0],
-                    pagePvRange[1],
-                    1,
-                    routeVisitsPageSize
-                  );
-                }}
-              />
+              <EChart option={pagePvOption} height={360} />
             </Skeleton>
           </Card>
         </Col>
@@ -1162,142 +947,7 @@ function ApplicationMonitor() {
         </Col>
       </Row>
 
-      <Card
-        title={
-          <Space wrap align="center" size={8}>
-            <span style={{ fontWeight: 600 }}>会话路径分析</span>
-            <Space size={6}>
-              <span>折叠重复</span>
-              <Switch
-                size="small"
-                checked={pathCollapseDuplicates}
-                onChange={(v) => setPathCollapseDuplicates(v)}
-              />
-            </Space>
-            <Space size={6}>
-              <span>最小停留(ms)</span>
-              <InputNumber
-                size="small"
-                min={0}
-                value={pathMinStayMs}
-                onChange={(v) => setPathMinStayMs(Number(v || 0))}
-              />
-            </Space>
-            <Space size={6}>
-              <span>最大深度</span>
-              <InputNumber
-                size="small"
-                min={1}
-                value={pathMaxDepth}
-                onChange={(v) => setPathMaxDepth(Number(v || 20))}
-              />
-            </Space>
-            <Input
-              size="small"
-              style={{ width: 260 }}
-              placeholder="忽略路由(正则/逗号分隔)"
-              value={pathIgnorePatterns}
-              onChange={(e) => setPathIgnorePatterns(e.target.value)}
-              allowClear
-            />
-            <Segmented
-              value={sessionPathPreset}
-              onChange={(val) => {
-                const preset = val as Preset;
-                setSessionPathPreset(preset);
-                if (!currentApp) return;
-                if (preset !== "custom") {
-                  const r = getPresetRange(preset);
-                  setSessionPathRange(r);
-                  loadSessionPathsData(currentApp, r[0], r[1]);
-                  loadSessionPathAggregateData(currentApp, r[0], r[1]);
-                }
-              }}
-              options={[
-                { label: "近7天", value: "7d" },
-                { label: "近1个月", value: "30d" },
-                { label: "近3个月", value: "90d" },
-                { label: "自定义", value: "custom" },
-              ]}
-              size="small"
-            />
-            {sessionPathPreset === "custom" && (
-              <RangePicker
-                allowClear={false}
-                value={sessionPathRange}
-                disabledDate={(current) => current && current > dayjs()}
-                onChange={(vals) => {
-                  if (!currentApp) return;
-                  if (vals && vals[0] && vals[1]) {
-                    setSessionPathRange([vals[0], vals[1]]);
-                    loadSessionPathsData(currentApp, vals[0], vals[1]);
-                    loadSessionPathAggregateData(currentApp, vals[0], vals[1]);
-                  }
-                }}
-              />
-            )}
-            <Button
-              size="small"
-              icon={<ReloadOutlined />}
-              onClick={() => {
-                if (!currentApp) return;
-                loadSessionPathsData(currentApp, sessionPathRange[0], sessionPathRange[1]);
-                loadSessionPathAggregateData(currentApp, sessionPathRange[0], sessionPathRange[1]);
-              }}
-            >
-              刷新
-            </Button>
-          </Space>
-        }
-        style={{ marginTop: 16 }}
-      >
-        <Skeleton active loading={sessionPathsLoading} paragraph={{ rows: 6 }}>
-          <Table
-            rowKey="SESSION_ID"
-            dataSource={sessionPaths}
-            pagination={{ pageSize: 10 }}
-            columns={[
-              { title: "会话ID", dataIndex: "SESSION_ID", width: 220 },
-              { title: "用户", dataIndex: "SDK_USER_UUID", width: 180 },
-              { title: "设备", dataIndex: "DEVICE_ID", width: 160 },
-              { title: "开始时间", dataIndex: "FIRST_TIME", width: 180 },
-              { title: "结束时间", dataIndex: "LAST_TIME", width: 180 },
-              { title: "步数", dataIndex: "STEP_COUNT", width: 80 },
-              {
-                title: "路径",
-                dataIndex: "PATH",
-                render: (v: string) => (
-                  <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 520 }} >
-                    {v}
-                  </Typography.Text>
-                ),
-              },
-              {
-                title: "操作",
-                width: 100,
-                render: (_: any, row: any) => (
-                  <Button
-                    type="link"
-                    onClick={() => {
-                      if (!currentApp) return;
-                      setCurrentSessionId(row.SESSION_ID);
-                      setSessionDetailOpen(true);
-                      loadSessionDetail(
-                        currentApp,
-                        row.SESSION_ID,
-                        sessionPathRange[0],
-                        sessionPathRange[1]
-                      );
-                    }}
-                  >
-                    查看
-                  </Button>
-                ),
-              },
-            ]}
-          />
-        </Skeleton>
-      </Card>
+      {/* 会话路径分析模块按设计图暂时移除 */}
 
       <Card
         title={
@@ -1317,8 +967,8 @@ function ApplicationMonitor() {
                 if (!currentApp) return;
                 loadSessionPathAggregateData(
                   currentApp,
-                  sessionPathRange[0],
-                  sessionPathRange[1]
+                  pvRange[0],
+                  pvRange[1]
                 );
               }}
             >
@@ -1422,267 +1072,9 @@ function ApplicationMonitor() {
         })()}
       </Card>
 
-      <Card
-        title={
-          <Space wrap align="center" size={8}>
-            <span style={{ fontWeight: 600 }}>
-              路径聚类 / Top 路径漏斗
-            </span>
-            <Input
-              size="small"
-              style={{ width: 180 }}
-              placeholder="起始页路由(可选)"
-              value={funnelStartRoutePath}
-              onChange={(e) => setFunnelStartRoutePath(e.target.value)}
-              allowClear
-            />
-            <Select
-              size="small"
-              style={{ width: 120 }}
-              value={funnelGroupBy}
-              onChange={(v) => setFunnelGroupBy(v)}
-              options={[
-                { label: "不分组", value: "NONE" },
-                { label: "按用户", value: "USER" },
-                { label: "按参数", value: "PARAM" },
-              ]}
-            />
-            {funnelGroupBy === "PARAM" && (
-              <Input
-                size="small"
-                style={{ width: 140 }}
-                placeholder="参数名，如 channel"
-                value={funnelGroupParamName}
-                onChange={(e) => setFunnelGroupParamName(e.target.value)}
-              />
-            )}
-            {funnelGroups.length > 1 && (
-              <Select
-                size="small"
-                style={{ width: 200 }}
-                value={activeFunnelGroupKey}
-                onChange={(v) => applyFunnelGroup(String(v))}
-                options={funnelGroups.map((g) => ({
-                  label: `${g.GROUP_KEY} (${g.SESSION_COUNT})`,
-                  value: String(g.GROUP_KEY),
-                }))}
-              />
-            )}
-            <Typography.Text type="secondary">
-              统计会话数: {pathAggSessionCount}
-            </Typography.Text>
-            <Button
-              size="small"
-              icon={<ReloadOutlined />}
-              onClick={() => {
-                if (!currentApp) return;
-                loadSessionPathAggregateData(currentApp, sessionPathRange[0], sessionPathRange[1]);
-              }}
-            >
-              刷新
-            </Button>
-          </Space>
-        }
-        style={{ marginTop: 16 }}
-        data-anchor="funnel-aggregate"
-      >
-        <Skeleton active loading={pathAggLoading} paragraph={{ rows: 8 }}>
-          <Row gutter={16}>
-            <Col span={14}>
-              <Table
-                rowKey={(r) => `${r.PATH || ""}-${r.COUNT || 0}`}
-                dataSource={topPathPatterns}
-                pagination={{ pageSize: 8 }}
-                columns={[
-                  { title: "会话数", dataIndex: "COUNT", width: 90 },
-                  {
-                    title: "占比(%)",
-                    dataIndex: "PCT",
-                    width: 90,
-                    render: (v: any) =>
-                      typeof v === "number" ? v.toFixed(2) : String(v || "0"),
-                  },
-                  {
-                    title: "路径模式",
-                    dataIndex: "PATH",
-                    render: (v: string) => (
-                      <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 520 }}>
-                        {v}
-                      </Typography.Text>
-                    ),
-                  },
-                  {
-                    title: "示例",
-                    width: 80,
-                    render: (_: any, row: any) => (
-                      <Button
-                        type="link"
-                        onClick={() => {
-                          if (!currentApp) return;
-                          const sid = row.SAMPLE_SESSION_ID;
-                          if (!sid) return;
-                          setCurrentSessionId(sid);
-                          setSessionDetailOpen(true);
-                          loadSessionDetail(currentApp, sid, sessionPathRange[0], sessionPathRange[1]);
-                        }}
-                      >
-                        查看
-                      </Button>
-                    ),
-                  },
-                ]}
-              />
-            </Col>
-            <Col span={10}>
-              <Table
-                rowKey={(r) => `${r.STEP}-${r.ROUTE_PATH}-${r.COUNT}`}
-                dataSource={funnelRows}
-                pagination={{ pageSize: 10 }}
-                columns={[
-                  { title: "步", dataIndex: "STEP", width: 50 },
-                  { title: "路由", dataIndex: "ROUTE_PATH" },
-                  { title: "会话数", dataIndex: "COUNT", width: 90 },
-                ]}
-              />
-            </Col>
-          </Row>
-        </Skeleton>
-      </Card>
+      {/* 路径聚类/漏斗模块按设计图暂时移除 */}
 
-      <Drawer
-        title={`页面访问下钻：${currentRoutePath || "-"}`}
-        open={pageRouteDrawerOpen}
-        width={920}
-        onClose={() => setPageRouteDrawerOpen(false)}
-      >
-        <Table
-          rowKey={(_, idx) => String(idx)}
-          loading={routeVisitsLoading}
-          dataSource={routeVisits}
-          pagination={{
-            current: routeVisitsPageNo,
-            pageSize: routeVisitsPageSize,
-            total: routeVisitsTotal,
-            showSizeChanger: true,
-            showTotal: (t) => `共 ${t} 条`,
-          }}
-          onChange={(p) => {
-            if (!currentApp || !currentRoutePath) return;
-            const nextSize = p.pageSize || routeVisitsPageSize;
-            const nextNo =
-              p.pageSize && p.pageSize !== routeVisitsPageSize ? 1 : p.current || 1;
-            setRouteVisitsPageNo(nextNo);
-            setRouteVisitsPageSize(nextSize);
-            loadRouteVisits(
-              currentApp,
-              currentRoutePath,
-              pagePvRange[0],
-              pagePvRange[1],
-              nextNo,
-              nextSize
-            );
-          }}
-          columns={[
-            { title: "时间", dataIndex: "CREATED_AT", width: 180 },
-            { title: "会话ID", dataIndex: "SESSION_ID", width: 220 },
-            { title: "用户", dataIndex: "SDK_USER_UUID", width: 180 },
-            { title: "设备", dataIndex: "DEVICE_ID", width: 160 },
-            {
-              title: "参数",
-              dataIndex: "ROUTE_PARAMS",
-              render: (v: string) => (
-                <Button
-                  type="link"
-                  onClick={() => {
-                    Modal.info({
-                      title: "路由参数",
-                      width: 680,
-                      content: (
-                        <pre style={{ maxHeight: 520, overflow: "auto" }}>
-                          {(() => {
-                            try {
-                              return JSON.stringify(JSON.parse(v || "{}"), null, 2);
-                            } catch {
-                              return String(v || "");
-                            }
-                          })()}
-                        </pre>
-                      ),
-                    });
-                  }}
-                >
-                  查看
-                </Button>
-              ),
-            },
-            {
-              title: "完整URL",
-              dataIndex: "FULL_URL",
-              render: (v: string) => (
-                <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 260 }}>
-                  {v}
-                </Typography.Text>
-              ),
-            },
-          ]}
-        />
-      </Drawer>
-
-      <Drawer
-        title={`会话路径详情：${currentSessionId || "-"}`}
-        open={sessionDetailOpen}
-        width={820}
-        onClose={() => setSessionDetailOpen(false)}
-      >
-        <Table
-          rowKey={(_, idx) => String(idx)}
-          loading={sessionDetailLoading}
-          dataSource={sessionDetailSteps}
-          pagination={{ pageSize: 20 }}
-          columns={[
-            { title: "时间", dataIndex: "CREATED_AT", width: 180 },
-            { title: "路由", dataIndex: "ROUTE_PATH", width: 260 },
-            { title: "路由类型", dataIndex: "ROUTE_TYPE", width: 100 },
-            {
-              title: "参数",
-              dataIndex: "ROUTE_PARAMS",
-              render: (v: string) => (
-                <Button
-                  type="link"
-                  onClick={() => {
-                    Modal.info({
-                      title: "路由参数",
-                      width: 680,
-                      content: (
-                        <pre style={{ maxHeight: 520, overflow: "auto" }}>
-                          {(() => {
-                            try {
-                              return JSON.stringify(JSON.parse(v || "{}"), null, 2);
-                            } catch {
-                              return String(v || "");
-                            }
-                          })()}
-                        </pre>
-                      ),
-                    });
-                  }}
-                >
-                  查看
-                </Button>
-              ),
-            },
-            {
-              title: "完整URL",
-              dataIndex: "FULL_URL",
-              render: (v: string) => (
-                <Typography.Text ellipsis={{ tooltip: v }} style={{ maxWidth: 260 }}>
-                  {v}
-                </Typography.Text>
-              ),
-            },
-          ]}
-        />
-      </Drawer>
+      {/* 下钻抽屉（页面访问/会话详情）按设计图暂时移除 */}
 
       <Card
         title={
