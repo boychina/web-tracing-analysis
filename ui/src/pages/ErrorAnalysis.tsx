@@ -52,7 +52,9 @@ export default function ErrorAnalysis() {
       });
       setErrorTrendData(Array.isArray(dailyTrend?.data?.data) ? dailyTrend.data.data : []);
       // Pie: group by URI from recent errors
-      const recent = await client.get("/application/listRecentErrorsByApp", { params: { appCode, limit: 200 } });
+      const recent = await client.get("/application/monitor/errors/recent", {
+        params: { appCode, limit: 200 },
+      });
       const rows = Array.isArray(recent?.data?.data) ? recent.data.data : [];
       setErrors(rows as RecentErrorItem[]);
       const uriCount: Record<string, number> = {};
@@ -168,10 +170,16 @@ export default function ErrorAnalysis() {
           }}
           fetchPayload={async (row) => {
             try {
-              const resp = await client.get("/application/getErrorPayloadByApp", {
-                params: { appCode, id: row.ID },
-              });
-              return resp?.data?.data || null;
+              const resp = await client.get(
+                "/application/monitor/errors/detail",
+                {
+                  params: { appCode, id: row.ID },
+                },
+              );
+              if (resp.data?.code === 1000 && resp.data?.data?.PAYLOAD) {
+                return String(resp.data.data.PAYLOAD);
+              }
+              return null;
             } catch {
               return null;
             }

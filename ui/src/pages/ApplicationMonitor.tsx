@@ -1157,9 +1157,8 @@ function ApplicationMonitor() {
                 size="small"
                 onClick={() => {
                   if (!currentApp) return;
-                  window.open(
+                  navigate(
                     `/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`,
-                    "_self",
                   );
                 }}
               >
@@ -1194,9 +1193,8 @@ function ApplicationMonitor() {
                 height={360}
                 onChartClick={() => {
                   if (!currentApp) return;
-                  window.open(
+                  navigate(
                     `/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`,
-                    "_self",
                   );
                 }}
               />
@@ -1236,9 +1234,8 @@ function ApplicationMonitor() {
               type="link"
               onClick={() => {
                 if (!currentApp) return;
-                window.open(
+                navigate(
                   `/application/monitor/paths?appCode=${encodeURIComponent(currentApp)}`,
-                  "_self",
                 );
               }}
             >

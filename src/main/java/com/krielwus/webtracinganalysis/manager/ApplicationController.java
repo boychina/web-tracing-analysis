@@ -21,6 +21,39 @@ public class ApplicationController {
         this.userRepo = userRepo;
     }
 
+    @GetMapping("/monitor/weeklyError")
+    public ResultInfo weeklyError(@RequestParam("appCode") String appCode,
+            @RequestParam(value = "days", required = false) Integer days,
+            @RequestParam(value = "startDate", required = false) String startDate,
+            @RequestParam(value = "endDate", required = false) String endDate) {
+        if (appCode == null || appCode.trim().isEmpty()) {
+            return new ResultInfo(400, "appCode required");
+        }
+        try {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.LocalDate end;
+            java.time.LocalDate start;
+            if (startDate != null && endDate != null) {
+                start = java.time.LocalDate.parse(startDate, fmt);
+                end = java.time.LocalDate.parse(endDate, fmt);
+                if (start.isAfter(end)) {
+                    return new ResultInfo(400, "date range invalid");
+                }
+            } else {
+                int d = (days == null || days < 1) ? 7 : days;
+                end = java.time.LocalDate.now();
+                start = end.minusDays(d - 1);
+            }
+            java.util.List<java.util.Map<String, Object>> list = service.aggregateDailyErrorForApp(start, end,
+                    appCode.trim());
+            return new ResultInfo(1000, "success", list);
+        } catch (java.time.format.DateTimeParseException ex) {
+            return new ResultInfo(400, "date format invalid");
+        } catch (Exception e) {
+            return new ResultInfo(500, "internal error");
+        }
+    }
+
     @GetMapping("/list")
     public ResultInfo list(HttpSession session) {
         com.krielwus.webtracinganalysis.entity.UserAccount u = (com.krielwus.webtracinganalysis.entity.UserAccount) session
