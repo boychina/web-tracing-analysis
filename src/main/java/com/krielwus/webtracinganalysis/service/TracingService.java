@@ -1754,9 +1754,10 @@ public class TracingService {
             if (sliced.isEmpty())
                 continue;
             for (int i = 0; i < sliced.size() - 1; i++) {
-                String a = sliced.get(i).routePath;
-                String b = sliced.get(i + 1).routePath;
-                if (a == null || a.isEmpty() || b == null || b.isEmpty())
+                String a = i + ":" + sliced.get(i).routePath;
+                String b = (i + 1) + ":" + sliced.get(i + 1).routePath;
+                if (sliced.get(i).routePath == null || sliced.get(i).routePath.isEmpty() || 
+                    sliced.get(i + 1).routePath == null || sliced.get(i + 1).routePath.isEmpty())
                     continue;
                 String key = a + "||" + b;
                 linkCount.put(key, linkCount.getOrDefault(key, 0L) + 1L);
