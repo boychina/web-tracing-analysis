@@ -4,6 +4,7 @@ import { ReloadOutlined } from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import client from "../api/client";
+import Breadcrumbs from "../components/Breadcrumbs";
 
 type RawMenuItem = {
   id: number | string;
@@ -117,20 +118,6 @@ function MainLayout() {
     return [path];
   }, [location.pathname]);
 
-  const headerTitle = useMemo(() => {
-    const pathname = location.pathname || "/";
-    const routeMap: Array<{ path: string; title: string }> = [
-      { path: "/analysis/userTrack", title: "用户行为分析" },
-      { path: "/analysis", title: "分析页" },
-      { path: "/application/monitor", title: "应用监控" },
-      { path: "/application", title: "应用管理" },
-      { path: "/user", title: "用户管理" },
-      { path: "/listing/table", title: "列表" },
-    ];
-    const found = routeMap.find((r) => pathname.startsWith(r.path));
-    return found ? found.title : "管理控制台";
-  }, [location.pathname]);
-
   if (loading) {
     return (
       <Layout style={{ minHeight: "100vh" }}>
@@ -185,8 +172,8 @@ function MainLayout() {
             justifyContent: "space-between",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div>{headerTitle}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+            <Breadcrumbs />
             <Button
               type="text"
               icon={<ReloadOutlined />}
