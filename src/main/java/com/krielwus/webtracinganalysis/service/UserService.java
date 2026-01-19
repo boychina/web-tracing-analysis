@@ -42,6 +42,11 @@ public class UserService {
         if (username == null) return null;
         return userAccountRepository.findByUsername(username);
     }
+    
+    public UserAccount findById(Long id) {
+        if (id == null) return null;
+        return userAccountRepository.findById(id).orElse(null);
+    }
 
     @Transactional
     public UserAccount create(String username, String password, String role) {

@@ -8,15 +8,23 @@ const client = axios.create({
 });
 
 let redirectingToLogin = false;
+let refreshing = false;
+let pendingQueue: Array<() => void> = [];
 
 client.interceptors.request.use(
   (config) => {
     try {
+      let deviceId = localStorage.getItem("DEVICE_ID");
+      if (!deviceId) {
+        deviceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem("DEVICE_ID", deviceId);
+      }
       const token = localStorage.getItem("AUTH_TOKEN");
       if (token) {
         config.headers = config.headers || {};
         (config.headers as any).Authorization = `Bearer ${token}`;
       }
+      (config.headers as any)["X-Device-Id"] = deviceId!;
     } catch {}
     (config as any).headers = {
       ...(config.headers || {}),
@@ -44,11 +52,48 @@ client.interceptors.response.use(
   (error: AxiosError) => {
     const status = error.response?.status;
     if (status === 401) {
-      message.warning("登录已过期，请重新登录");
-      if (!redirectingToLogin && window.location.pathname !== "/login") {
-        redirectingToLogin = true;
-        window.location.href = "/login";
+      const original = error.config!;
+      if ((original as any)._retry) {
+        message.warning("登录已过期，请重新登录");
+        if (!redirectingToLogin && window.location.pathname !== "/login") {
+          redirectingToLogin = true;
+          window.location.href = "/login";
+        }
+        return Promise.reject(error);
       }
+      (original as any)._retry = true;
+      if (refreshing) {
+        return new Promise((resolve, reject) => {
+          pendingQueue.push(() => {
+            client(original!).then(resolve).catch(reject);
+          });
+        });
+      }
+      refreshing = true;
+      return client
+        .post("/auth/refresh", {}, { withCredentials: true })
+        .then((resp) => {
+          const at = (resp.data as any)?.data?.accessToken;
+          if (at) {
+            localStorage.setItem("AUTH_TOKEN", at);
+            pendingQueue.forEach((fn) => fn());
+            pendingQueue = [];
+            return client(original!);
+          } else {
+            throw new Error("no access token");
+          }
+        })
+        .catch(() => {
+          message.warning("登录已过期，请重新登录");
+          if (!redirectingToLogin && window.location.pathname !== "/login") {
+            redirectingToLogin = true;
+            window.location.href = "/login";
+          }
+          return Promise.reject(error);
+        })
+        .finally(() => {
+          refreshing = false;
+        });
     } else if (status === 403) {
       message.error("无权限访问");
     } else if (status === 404) {

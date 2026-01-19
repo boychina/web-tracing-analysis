@@ -17,7 +17,11 @@ function Login() {
     try {
       const resp = await client.post("/login", values);
       const data = resp.data;
-      if (data.code === 200) {
+      if (data.code === 1000) {
+        const at = data?.data?.accessToken;
+        if (at) {
+          localStorage.setItem("AUTH_TOKEN", at);
+        }
         message.success("登录成功");
         window.location.href = "/";
       } else {

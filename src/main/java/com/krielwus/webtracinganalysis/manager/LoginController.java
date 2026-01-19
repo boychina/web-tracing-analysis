@@ -11,6 +11,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import com.krielwus.webtracinganalysis.service.AuthTokenService;
+import com.krielwus.webtracinganalysis.info.Tokens;
+import org.springframework.beans.factory.annotation.Value;
+import jakarta.servlet.http.Cookie;
 
 /**
  * 登录接口控制器。
@@ -21,9 +27,15 @@ import jakarta.servlet.http.HttpSession;
 public class LoginController {
 
     private final UserService userService;
+    private final AuthTokenService tokenService;
+    @Value("${COOKIE_DOMAIN:}")
+    private String cookieDomain;
+    @Value("${REFRESH_TOKEN_TTL_DAYS:30}")
+    private long refreshTtlDays;
 
-    public LoginController(UserService userService) {
+    public LoginController(UserService userService, AuthTokenService tokenService) {
         this.userService = userService;
+        this.tokenService = tokenService;
     }
 
     /**
@@ -32,7 +44,7 @@ public class LoginController {
      */
     @PostMapping("/login")
     @ResponseBody
-    public ResultInfo login(@RequestBody JSONObject jsonObject, HttpSession session) {
+    public ResultInfo login(@RequestBody JSONObject jsonObject, HttpSession session, HttpServletRequest request, HttpServletResponse response) {
         String username = String.valueOf(jsonObject.getOrDefault("username", "")).trim();
         String password = String.valueOf(jsonObject.getOrDefault("password", "")).trim();
         // String verifyCode = String.valueOf(jsonObject.getOrDefault("verifyCode", "")).trim();
@@ -59,7 +71,17 @@ public class LoginController {
             } else {
                 session.setAttribute("username", username);
             }
-            return new ResultInfo(200, "登录成功", "","./index.html");
+            String deviceId = request.getHeader("X-Device-Id");
+            if (deviceId == null || deviceId.trim().isEmpty()) {
+                String ua = request.getHeader("User-Agent");
+                deviceId = Integer.toHexString((ua == null ? "unknown" : ua).hashCode());
+            }
+            Tokens tokens = tokenService.issueTokens(user, deviceId, remoteIp(request), request.getHeader("User-Agent"));
+            setRefreshCookie(response, tokens.getRefreshToken());
+            JSONObject data = new JSONObject();
+            data.put("accessToken", tokens.getAccessToken());
+            data.put("redirect", "./index.html");
+            return new ResultInfo(1000, "success", data);
         } else {
             return new ResultInfo(400, "用户名或密码错误");
         }
@@ -73,6 +95,35 @@ public class LoginController {
         } catch (Exception ignore) {
         }
         return new ResultInfo(200, "退出成功");
+    }
+
+    private String remoteIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip != null && !ip.isEmpty()) {
+            int idx = ip.indexOf(',');
+            if (idx > 0) ip = ip.substring(0, idx);
+            return ip.trim();
+        }
+        ip = request.getHeader("X-Real-IP");
+        if (ip != null && !ip.isEmpty()) return ip;
+        return request.getRemoteAddr();
+    }
+
+    private void setRefreshCookie(HttpServletResponse response, String rtPlain) {
+        if (rtPlain == null) return;
+        String encoded;
+        try {
+            encoded = java.net.URLEncoder.encode(rtPlain, java.nio.charset.StandardCharsets.UTF_8.name());
+        } catch (java.io.UnsupportedEncodingException e) {
+            encoded = rtPlain;
+        }
+        Cookie c = new Cookie("RT", encoded);
+        c.setHttpOnly(true);
+        c.setSecure(false);
+        c.setPath("/");
+        if (cookieDomain != null && !cookieDomain.isEmpty()) c.setDomain(cookieDomain);
+        c.setMaxAge((int)(refreshTtlDays * 24 * 60 * 60));
+        response.addCookie(c);
     }
 
     @PostMapping("/register")

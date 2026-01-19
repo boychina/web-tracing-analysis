@@ -46,6 +46,7 @@ function UserManagement() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [form] = Form.useForm<UserFormValues>();
+  const [devices, setDevices] = useState<any[]>([]);
 
   const isSuper = me?.role === "SUPER_ADMIN";
   const isAdmin = me?.role === "ADMIN";
@@ -62,6 +63,7 @@ function UserManagement() {
         setMe(meResp.data.data as MeInfo);
       }
       await loadUsers();
+      await loadDevices();
     } catch {
       message.error("加载用户数据失败");
     } finally {
@@ -73,6 +75,40 @@ function UserManagement() {
     const resp = await client.get("/user/list");
     if (resp.data && resp.data.code === 1000) {
       setList(resp.data.data as UserRow[]);
+    }
+  }
+  async function loadDevices() {
+    try {
+      const resp = await client.get("/auth/devices");
+      if (resp.data && resp.data.code === 1000) {
+        setDevices(resp.data.data || []);
+      }
+    } catch {}
+  }
+  async function kickDevice(tokenId: number) {
+    try {
+      const resp = await client.post("/auth/kick", { tokenId });
+      if (resp.data && resp.data.code === 1000) {
+        message.success("已踢出设备");
+        await loadDevices();
+      } else {
+        message.error(resp.data?.msg || "操作失败");
+      }
+    } catch {
+      message.error("操作失败");
+    }
+  }
+  async function forceLogoutUser(id: number) {
+    try {
+      const resp = await client.post("/auth/forceLogout", { userId: id });
+      if (resp.data && resp.data.code === 1000) {
+        message.success("已强制下线该用户");
+        await loadDevices();
+      } else {
+        message.error(resp.data?.msg || "操作失败");
+      }
+    } catch {
+      message.error("操作失败");
     }
   }
 
@@ -260,6 +296,18 @@ function UserManagement() {
               </Button>
             );
           }
+          if ((isAdmin || isSuper) && record.username.toLowerCase() !== "admin") {
+            buttons.push(
+              <Button
+                key="force-logout"
+                type="link"
+                size="small"
+                onClick={() => forceLogoutUser(record.id)}
+              >
+                强制下线
+              </Button>
+            );
+          }
           if (!buttons.length) return null;
           return <Space>{buttons}</Space>;
         }
@@ -286,6 +334,32 @@ function UserManagement() {
         dataSource={list}
         pagination={{ pageSize: 10 }}
       />
+      <Card title="当前活跃设备" style={{ marginTop: 16 }}>
+        <Table
+          rowKey="id"
+          dataSource={devices}
+          columns={[
+            { title: "ID", dataIndex: "id", width: 80 },
+            { title: "设备ID", dataIndex: "deviceId" },
+            { title: "最近刷新", dataIndex: "lastRefreshAt" },
+            { title: "过期时间", dataIndex: "expiresAt" },
+            {
+              title: "操作",
+              width: 160,
+              render: (_: any, row: any) => (
+                <Space>
+                  {!row.revoked && (
+                    <Button type="link" size="small" onClick={() => kickDevice(row.id)}>
+                      踢出
+                    </Button>
+                  )}
+                </Space>
+              ),
+            },
+          ]}
+          pagination={{ pageSize: 5 }}
+        />
+      </Card>
       <Modal
         open={modalOpen}
         title={editing ? "编辑用户" : "新增用户"}

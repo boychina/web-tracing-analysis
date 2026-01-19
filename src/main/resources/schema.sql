@@ -72,3 +72,36 @@ CREATE TABLE IF NOT EXISTS `application_info` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='应用信息管理';
 
 -- 已在建表语句中包含 app_managers 字段，移除重复 ALTER 以避免启动失败
+
+-- 刷新令牌表：每设备一个刷新令牌，服务端保存哈希
+CREATE TABLE IF NOT EXISTS `refresh_token` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT NOT NULL,
+  `device_id` VARCHAR(128) NOT NULL,
+  `token_hash` VARCHAR(256) NOT NULL,
+  `created_at` DATETIME NULL,
+  `expires_at` DATETIME NULL,
+  `revoked` TINYINT(1) NOT NULL DEFAULT 0,
+  `replaced_by_token_id` BIGINT NULL,
+  `ip_address` VARCHAR(64) NULL,
+  `user_agent` VARCHAR(512) NULL,
+  `last_refresh_at` DATETIME NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_token_hash` (`token_hash`),
+  KEY `idx_user_active` (`user_id`, `revoked`, `expires_at`),
+  KEY `idx_device_user` (`device_id`, `user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='刷新令牌（滚动更新）';
+
+-- 刷新审计日志：记录每次 /refresh 的来源信息
+CREATE TABLE IF NOT EXISTS `refresh_token_audit` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `token_id` BIGINT NULL,
+  `user_id` BIGINT NULL,
+  `device_id` VARCHAR(128) NULL,
+  `ip_address` VARCHAR(64) NULL,
+  `user_agent` VARCHAR(512) NULL,
+  `success` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at` DATETIME NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_created` (`user_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='刷新令牌审计';

@@ -16,6 +16,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
+    private final JwtAuthInterceptor jwtAuthInterceptor;
+    public WebMvcConfig(JwtAuthInterceptor jwtAuthInterceptor) {
+        this.jwtAuthInterceptor = jwtAuthInterceptor;
+    }
 
     @Bean
     public CorsFilter corsFilter() {
@@ -35,7 +39,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new AuthInterceptor())
+        registry.addInterceptor(jwtAuthInterceptor)
                 .addPathPatterns(
                         "/api/user/**",
                         "/api/application/**",
@@ -50,6 +54,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 )
                 .excludePathPatterns(
                         "/api/login",
+                        "/api/auth/login",
+                        "/api/auth/refresh",
+                        "/api/auth/sso/**",
+                        "/api/auth/logout",
                         "/api/register",
                         "/api/captcha/**",
                         "/api/trackweb",
