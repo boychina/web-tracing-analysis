@@ -1247,6 +1247,74 @@ public class TracingService {
         return out;
     }
 
+    public List<Map<String, Object>> aggregateDailyClickForApp(LocalDate startDate, LocalDate endDate, String appCode) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            Date start = Date.from(d.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            Date end = Date.from(d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+            int cnt = (int) tracingEventRepository.countByEventTypeAndAppCodeAndCreatedAtBetween("CLICK", appCode,
+                    start, end);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("APP_CODE", appCode);
+            row.put("DATETIME", DF.format(d));
+            row.put("COUNT", cnt);
+            out.add(row);
+        }
+        return out;
+    }
+
+    public List<Map<String, Object>> aggregateDailyDeviceForApp(LocalDate startDate, LocalDate endDate, String appCode) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (appCode == null || appCode.trim().isEmpty()) return out;
+        String trimmed = appCode.trim();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            Date start = Date.from(d.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            Date end = Date.from(d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+            java.util.List<BaseInfoRecord> records = baseInfoRecordRepository.findByCreatedAtBetween(start, end);
+            Set<String> devices = new HashSet<>();
+            for (BaseInfoRecord r : records) {
+                Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
+                if (m == null) continue;
+                String code = getString(m, "appCode", "APP_CODE");
+                if (code == null || !trimmed.equals(code)) continue;
+                String did = getString(m, "deviceId", "DEVICE_ID");
+                if (did != null && !did.isEmpty()) devices.add(did);
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("APP_CODE", trimmed);
+            row.put("DATETIME", DF.format(d));
+            row.put("COUNT", devices.size());
+            out.add(row);
+        }
+        return out;
+    }
+
+    public List<Map<String, Object>> aggregateDailySessionForApp(LocalDate startDate, LocalDate endDate, String appCode) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (appCode == null || appCode.trim().isEmpty()) return out;
+        String trimmed = appCode.trim();
+        for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+            Date start = Date.from(d.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            Date end = Date.from(d.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+            java.util.List<BaseInfoRecord> records = baseInfoRecordRepository.findByCreatedAtBetween(start, end);
+            Set<String> sessions = new HashSet<>();
+            for (BaseInfoRecord r : records) {
+                Map<String, Object> m = fromJson(r.getPayload(), new TypeReference<Map<String, Object>>() {});
+                if (m == null) continue;
+                String code = getString(m, "appCode", "APP_CODE");
+                if (code == null || !trimmed.equals(code)) continue;
+                String sid = getString(m, "sessionId", "SESSION_ID");
+                if (sid != null && !sid.isEmpty()) sessions.add(sid);
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("APP_CODE", trimmed);
+            row.put("DATETIME", DF.format(d));
+            row.put("COUNT", sessions.size());
+            out.add(row);
+        }
+        return out;
+    }
+
     public List<Map<String, Object>> aggregatePagePVForApp(LocalDate startDate, LocalDate endDate, String appCode) {
         Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());

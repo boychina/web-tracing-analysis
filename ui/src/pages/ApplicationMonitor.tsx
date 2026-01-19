@@ -62,6 +62,10 @@ type UvItem = {
   COUNT: number;
 };
 
+type CountItem = {
+  DATETIME: string;
+  COUNT: number;
+};
 type ErrorItem = RecentErrorItem;
 
 type PagePvItem = {
@@ -108,9 +112,13 @@ function ApplicationMonitor() {
   const [apps, setApps] = useState<AppItem[]>([]);
   const [currentApp, setCurrentApp] = useState<string>();
   const [dailyBase, setDailyBase] = useState<DailyBase | null>(null);
+  const [yesterdayBase, setYesterdayBase] = useState<DailyBase | null>(null);
   const [allBase, setAllBase] = useState<AllBase | null>(null);
   const [dailyList, setDailyList] = useState<DailyItem[]>([]);
   const [uvList, setUvList] = useState<UvItem[]>([]);
+  const [deviceList, setDeviceList] = useState<CountItem[]>([]);
+  const [sessionList, setSessionList] = useState<CountItem[]>([]);
+  const [clickList, setClickList] = useState<CountItem[]>([]);
   const [pagePv, setPagePv] = useState<PagePvItem[]>([]);
   const [errorTrend, setErrorTrend] = useState<ErrorTrendItem[]>([]);
   const [errorList, setErrorList] = useState<ErrorItem[]>([]);
@@ -273,13 +281,16 @@ function ApplicationMonitor() {
   async function loadBaseSummary(appCode: string) {
     setBaseLoading(true);
     try {
-      const [dailyResp, allResp] = await Promise.all([
+      const todayStr = dayjs().format("YYYY-MM-DD");
+      const yesterdayStr = dayjs().subtract(1, "day").format("YYYY-MM-DD");
+      const [dailyResp, yesterdayResp, allResp] = await Promise.all([
         client.get("/application/monitor/dailyBase", {
-          params: { appCode },
+          params: { appCode, date: todayStr },
         }),
-        client.get("/application/monitor/allBase", {
-          params: { appCode },
+        client.get("/application/monitor/dailyBase", {
+          params: { appCode, date: yesterdayStr },
         }),
+        client.get("/application/monitor/allBase", { params: { appCode } }),
       ]);
 
       if (dailyResp.data && dailyResp.data.code === 1000) {
@@ -287,6 +298,12 @@ function ApplicationMonitor() {
         setDailyBase(d);
       } else {
         setDailyBase(null);
+      }
+      if (yesterdayResp.data && yesterdayResp.data.code === 1000) {
+        const yd = yesterdayResp.data.data[0] as DailyBase;
+        setYesterdayBase(yd);
+      } else {
+        setYesterdayBase(null);
       }
 
       if (allResp.data && allResp.data.code === 1000) {
@@ -302,6 +319,18 @@ function ApplicationMonitor() {
     } finally {
       setBaseLoading(false);
     }
+  }
+
+  function calcDelta(current?: number, previous?: number) {
+    const c = Number(current || 0);
+    const p = Number(previous || 0);
+    if (p <= 0 && c <= 0) return { pct: 0, status: "down" as const };
+    if (p <= 0 && c > 0) return { pct: 100, status: "up" as const };
+    const diff = c - p;
+    const pct = Math.round((diff / p) * 100);
+    const status =
+      c > p ? ("up" as const) : c < p ? ("down" as const) : ("up" as const);
+    return { pct, status };
   }
 
   async function loadPvData(
@@ -369,6 +398,87 @@ function ApplicationMonitor() {
       setUvList(dates.map((d) => ({ DATETIME: d, COUNT: 0 })));
     } finally {
       setUvLoading(false);
+    }
+  }
+
+  async function loadDeviceTrend(
+    appCode: string,
+    start: DayjsValue,
+    end: DayjsValue,
+  ) {
+    const dates = buildDateStrings(start, end);
+    try {
+      const resp = await client.post("/application/monitor/dailyDevice", {
+        appCode,
+        startDate: start.format("YYYY-MM-DD"),
+        endDate: end.format("YYYY-MM-DD"),
+      });
+      if (resp.data && resp.data.code === 1000) {
+        const list = resp.data.data as CountItem[];
+        const mapped = dates.map((date) => {
+          const found = list.find((it) => it.DATETIME === date);
+          return { DATETIME: date, COUNT: found ? found.COUNT : 0 };
+        });
+        setDeviceList(mapped);
+      } else {
+        setDeviceList(dates.map((d) => ({ DATETIME: d, COUNT: 0 })));
+      }
+    } catch {
+      setDeviceList(dates.map((d) => ({ DATETIME: d, COUNT: 0 })));
+    }
+  }
+
+  async function loadSessionTrend(
+    appCode: string,
+    start: DayjsValue,
+    end: DayjsValue,
+  ) {
+    const dates = buildDateStrings(start, end);
+    try {
+      const resp = await client.post("/application/monitor/dailySession", {
+        appCode,
+        startDate: start.format("YYYY-MM-DD"),
+        endDate: end.format("YYYY-MM-DD"),
+      });
+      if (resp.data && resp.data.code === 1000) {
+        const list = resp.data.data as CountItem[];
+        const mapped = dates.map((date) => {
+          const found = list.find((it) => it.DATETIME === date);
+          return { DATETIME: date, COUNT: found ? found.COUNT : 0 };
+        });
+        setSessionList(mapped);
+      } else {
+        setSessionList(dates.map((d) => ({ DATETIME: d, COUNT: 0 })));
+      }
+    } catch {
+      setSessionList(dates.map((d) => ({ DATETIME: d, COUNT: 0 })));
+    }
+  }
+
+  async function loadClickTrend(
+    appCode: string,
+    start: DayjsValue,
+    end: DayjsValue,
+  ) {
+    const dates = buildDateStrings(start, end);
+    try {
+      const resp = await client.post("/application/monitor/dailyClick", {
+        appCode,
+        startDate: start.format("YYYY-MM-DD"),
+        endDate: end.format("YYYY-MM-DD"),
+      });
+      if (resp.data && resp.data.code === 1000) {
+        const list = resp.data.data as CountItem[];
+        const mapped = dates.map((date) => {
+          const found = list.find((it) => it.DATETIME === date);
+          return { DATETIME: date, COUNT: found ? found.COUNT : 0 };
+        });
+        setClickList(mapped);
+      } else {
+        setClickList(dates.map((d) => ({ DATETIME: d, COUNT: 0 })));
+      }
+    } catch {
+      setClickList(dates.map((d) => ({ DATETIME: d, COUNT: 0 })));
     }
   }
 
@@ -508,6 +618,9 @@ function ApplicationMonitor() {
       loadBaseSummary(appCode),
       loadPvData(appCode, pvRange[0], pvRange[1]),
       loadUvData(appCode, uvRange[0], uvRange[1]),
+      loadDeviceTrend(appCode, uvRange[0], uvRange[1]),
+      loadSessionTrend(appCode, uvRange[0], uvRange[1]),
+      loadClickTrend(appCode, uvRange[0], uvRange[1]),
       loadPagePvData(appCode, pagePvRange[0], pagePvRange[1]),
       loadErrorTrendData(appCode, errorRange[0], errorRange[1]),
       loadSessionPathAggregateData(appCode, pvRange[0], pvRange[1]),
@@ -846,10 +959,30 @@ function ApplicationMonitor() {
             loading={baseLoading}
             title="日活跃用户（DAU）"
             value={dailyBase ? dailyBase.USER_COUNT : 0}
-            footer={`历史用户数: ${allBase ? allBase.USER_COUNT : 0}`}
+            footer={
+              <>
+                历史用户数: {allBase ? allBase.USER_COUNT : 0}
+                <br />
+                较昨日:{" "}
+                {(() => {
+                  const d = calcDelta(
+                    dailyBase?.USER_COUNT,
+                    yesterdayBase?.USER_COUNT,
+                  );
+                  return (d.pct >= 0 ? "+" : "") + d.pct + "%";
+                })()}
+              </>
+            }
             trendData={uvList.map((d) => d.COUNT)}
-            status={uvList.length > 1 && uvList[uvList.length - 1].COUNT >= uvList[uvList.length - 2].COUNT ? "up" : "down"}
-            statusText={uvList.length > 1 && uvList[uvList.length - 1].COUNT >= uvList[uvList.length - 2].COUNT ? "正" : "下降"}
+            status={
+              calcDelta(dailyBase?.USER_COUNT, yesterdayBase?.USER_COUNT).status
+            }
+            statusText={
+              calcDelta(dailyBase?.USER_COUNT, yesterdayBase?.USER_COUNT)
+                .status === "up"
+                ? "正"
+                : "下降"
+            }
           />
         </Col>
         <Col xs={24} md={4}>
@@ -857,7 +990,30 @@ function ApplicationMonitor() {
             loading={baseLoading}
             title="日活跃设备"
             value={dailyBase ? dailyBase.DEVICE_NUM : 0}
-            footer={`历史设备数: ${allBase ? allBase.DEVICE_NUM : 0}`}
+            footer={
+              <>
+                历史设备数: {allBase ? allBase.DEVICE_NUM : 0}
+                <br />
+                较昨日:{" "}
+                {(() => {
+                  const d = calcDelta(
+                    dailyBase?.DEVICE_NUM,
+                    yesterdayBase?.DEVICE_NUM,
+                  );
+                  return (d.pct >= 0 ? "+" : "") + d.pct + "%";
+                })()}
+              </>
+            }
+            trendData={deviceList.map((d) => d.COUNT)}
+            status={
+              calcDelta(dailyBase?.DEVICE_NUM, yesterdayBase?.DEVICE_NUM).status
+            }
+            statusText={
+              calcDelta(dailyBase?.DEVICE_NUM, yesterdayBase?.DEVICE_NUM)
+                .status === "up"
+                ? "正"
+                : "下降"
+            }
           />
         </Col>
         <Col xs={24} md={4}>
@@ -865,7 +1021,31 @@ function ApplicationMonitor() {
             loading={baseLoading}
             title="日活跃会话"
             value={dailyBase ? dailyBase.SESSION_UNM : 0}
-            footer={`历史会话数: ${allBase ? allBase.SESSION_UNM : 0}`}
+            footer={
+              <>
+                历史会话数: {allBase ? allBase.SESSION_UNM : 0}
+                <br />
+                较昨日:{" "}
+                {(() => {
+                  const d = calcDelta(
+                    dailyBase?.SESSION_UNM,
+                    yesterdayBase?.SESSION_UNM,
+                  );
+                  return (d.pct >= 0 ? "+" : "") + d.pct + "%";
+                })()}
+              </>
+            }
+            trendData={sessionList.map((d) => d.COUNT)}
+            status={
+              calcDelta(dailyBase?.SESSION_UNM, yesterdayBase?.SESSION_UNM)
+                .status
+            }
+            statusText={
+              calcDelta(dailyBase?.SESSION_UNM, yesterdayBase?.SESSION_UNM)
+                .status === "up"
+                ? "正"
+                : "下降"
+            }
           />
         </Col>
         <Col xs={24} md={4}>
@@ -873,7 +1053,30 @@ function ApplicationMonitor() {
             loading={baseLoading}
             title="日点击量"
             value={dailyBase ? dailyBase.CLICK_NUM : 0}
-            footer={`历史点击量: ${allBase ? allBase.CLICK_NUM : 0}`}
+            footer={
+              <>
+                历史点击量: {allBase ? allBase.CLICK_NUM : 0}
+                <br />
+                较昨日:{" "}
+                {(() => {
+                  const d = calcDelta(
+                    dailyBase?.CLICK_NUM,
+                    yesterdayBase?.CLICK_NUM,
+                  );
+                  return (d.pct >= 0 ? "+" : "") + d.pct + "%";
+                })()}
+              </>
+            }
+            trendData={clickList.map((d) => d.COUNT)}
+            status={
+              calcDelta(dailyBase?.CLICK_NUM, yesterdayBase?.CLICK_NUM).status
+            }
+            statusText={
+              calcDelta(dailyBase?.CLICK_NUM, yesterdayBase?.CLICK_NUM)
+                .status === "up"
+                ? "正"
+                : "下降"
+            }
           />
         </Col>
         <Col xs={24} md={4}>
@@ -881,10 +1084,25 @@ function ApplicationMonitor() {
             loading={baseLoading}
             title="页面访问量（PV）"
             value={dailyBase ? dailyBase.PV_NUM : 0}
-            footer={`历史浏览数: ${allBase ? allBase.PV_NUM : 0}`}
+            footer={
+              <>
+                历史浏览数: {allBase ? allBase.PV_NUM : 0}
+                <br />
+                较昨日:{" "}
+                {(() => {
+                  const d = calcDelta(dailyBase?.PV_NUM, yesterdayBase?.PV_NUM);
+                  return (d.pct >= 0 ? "+" : "") + d.pct + "%";
+                })()}
+              </>
+            }
             trendData={dailyList.map((d) => d.PV_NUM)}
-            status={dailyList.length > 1 && dailyList[dailyList.length - 1].PV_NUM >= dailyList[dailyList.length - 2].PV_NUM ? "up" : "down"}
-            statusText={dailyList.length > 1 && dailyList[dailyList.length - 1].PV_NUM >= dailyList[dailyList.length - 2].PV_NUM ? "正" : "下降"}
+            status={calcDelta(dailyBase?.PV_NUM, yesterdayBase?.PV_NUM).status}
+            statusText={
+              calcDelta(dailyBase?.PV_NUM, yesterdayBase?.PV_NUM).status ===
+              "up"
+                ? "正"
+                : "下降"
+            }
           />
         </Col>
         <Col xs={24} md={4}>
@@ -892,10 +1110,33 @@ function ApplicationMonitor() {
             loading={baseLoading}
             title="日上报错误"
             value={dailyBase ? dailyBase.ERROR_NUM || 0 : 0}
-            footer={`历史错误数: ${allBase ? allBase.ERROR_NUM || 0 : 0}`}
+            footer={
+              <>
+                历史错误数: {allBase ? allBase.ERROR_NUM || 0 : 0}
+                <br />
+                较昨日:{" "}
+                {(() => {
+                  const d = calcDelta(
+                    dailyBase?.ERROR_NUM,
+                    yesterdayBase?.ERROR_NUM,
+                  );
+                  return (d.pct >= 0 ? "+" : "") + d.pct + "%";
+                })()}
+              </>
+            }
             trendData={errorTrend.map((d) => d.ERROR_NUM)}
-            status={errorTrend.length > 1 && errorTrend[errorTrend.length - 1].ERROR_NUM > errorTrend[errorTrend.length - 2].ERROR_NUM ? "warn" : "down"}
-            statusText={errorTrend.length > 1 && errorTrend[errorTrend.length - 1].ERROR_NUM > errorTrend[errorTrend.length - 2].ERROR_NUM ? "预警" : "下降"}
+            status={
+              calcDelta(dailyBase?.ERROR_NUM, yesterdayBase?.ERROR_NUM)
+                .status === "up"
+                ? "warn"
+                : "down"
+            }
+            statusText={
+              calcDelta(dailyBase?.ERROR_NUM, yesterdayBase?.ERROR_NUM)
+                .status === "up"
+                ? "预警"
+                : "下降"
+            }
           />
         </Col>
       </Row>
@@ -908,14 +1149,24 @@ function ApplicationMonitor() {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title={uvTitle} bodyStyle={{ paddingTop: 0 }} extra={
-            <Button size="small" onClick={() => {
-              if (!currentApp) return;
-              window.open(`/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`, "_self");
-            }}>
-              近24小时异常 {errorLast24h}
-            </Button>
-          }>
+          <Card
+            title={uvTitle}
+            bodyStyle={{ paddingTop: 0 }}
+            extra={
+              <Button
+                size="small"
+                onClick={() => {
+                  if (!currentApp) return;
+                  window.open(
+                    `/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`,
+                    "_self",
+                  );
+                }}
+              >
+                近24小时异常 {errorLast24h}
+              </Button>
+            }
+          >
             <Skeleton active loading={uvLoading} paragraph={{ rows: 8 }}>
               <EChart option={uvOption} height={360} />
             </Skeleton>
@@ -938,10 +1189,17 @@ function ApplicationMonitor() {
               loading={errorTrendLoading}
               paragraph={{ rows: 8 }}
             >
-              <EChart option={errorOption} height={360} onChartClick={() => {
-                if (!currentApp) return;
-                window.open(`/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`, "_self");
-              }} />
+              <EChart
+                option={errorOption}
+                height={360}
+                onChartClick={() => {
+                  if (!currentApp) return;
+                  window.open(
+                    `/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`,
+                    "_self",
+                  );
+                }}
+              />
             </Skeleton>
           </Card>
         </Col>
@@ -968,7 +1226,7 @@ function ApplicationMonitor() {
                 loadSessionPathAggregateData(
                   currentApp,
                   pvRange[0],
-                  pvRange[1]
+                  pvRange[1],
                 );
               }}
             >
@@ -978,7 +1236,10 @@ function ApplicationMonitor() {
               type="link"
               onClick={() => {
                 if (!currentApp) return;
-                window.open(`/application/monitor/paths?appCode=${encodeURIComponent(currentApp)}`, "_self");
+                window.open(
+                  `/application/monitor/paths?appCode=${encodeURIComponent(currentApp)}`,
+                  "_self",
+                );
               }}
             >
               查看完整分析
@@ -998,14 +1259,22 @@ function ApplicationMonitor() {
             .filter((r) => Number(r.STEP) === 3)
             .sort((a, b) => Number(b.COUNT || 0) - Number(a.COUNT || 0))[0];
           const conv2 =
-            step1Count > 0 ? Math.round((Number(topStep2?.COUNT || 0) * 100) / step1Count) : 0;
+            step1Count > 0
+              ? Math.round((Number(topStep2?.COUNT || 0) * 100) / step1Count)
+              : 0;
           const conv3 =
-            step1Count > 0 ? Math.round((Number(topStep3?.COUNT || 0) * 100) / step1Count) : 0;
+            step1Count > 0
+              ? Math.round((Number(topStep3?.COUNT || 0) * 100) / step1Count)
+              : 0;
           return (
             <Row gutter={16}>
               <Col xs={24} md={8}>
                 <Card>
-                  <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                  <Space
+                    direction="vertical"
+                    size={8}
+                    style={{ width: "100%" }}
+                  >
                     <div style={{ fontWeight: 600 }}>
                       起始页（{funnelStartRoutePath || "未指定"}）
                     </div>
@@ -1023,11 +1292,17 @@ function ApplicationMonitor() {
               </Col>
               <Col xs={24} md={8}>
                 <Card>
-                  <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                  <Space
+                    direction="vertical"
+                    size={8}
+                    style={{ width: "100%" }}
+                  >
                     <div style={{ fontWeight: 600 }}>
                       {topStep2?.ROUTE_PATH || "下一步"}
                     </div>
-                    <div style={{ fontSize: 20, fontWeight: 700 }}>{conv2}%</div>
+                    <div style={{ fontSize: 20, fontWeight: 700 }}>
+                      {conv2}%
+                    </div>
                     <div
                       style={{
                         height: 8,
@@ -1046,11 +1321,17 @@ function ApplicationMonitor() {
               </Col>
               <Col xs={24} md={8}>
                 <Card>
-                  <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                  <Space
+                    direction="vertical"
+                    size={8}
+                    style={{ width: "100%" }}
+                  >
                     <div style={{ fontWeight: 600 }}>
                       {topStep3?.ROUTE_PATH || "后续一步"}
                     </div>
-                    <div style={{ fontSize: 20, fontWeight: 700 }}>{conv3}%</div>
+                    <div style={{ fontSize: 20, fontWeight: 700 }}>
+                      {conv3}%
+                    </div>
                     <div
                       style={{
                         height: 8,
@@ -1175,7 +1456,7 @@ function ApplicationMonitor() {
               "/application/monitor/errors/detail",
               {
                 params: { appCode, id },
-              }
+              },
             );
             if (resp.data?.code === 1000 && resp.data.data?.PAYLOAD) {
               return String(resp.data.data.PAYLOAD);

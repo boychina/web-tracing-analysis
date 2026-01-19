@@ -194,6 +194,17 @@ public class ApplicationService {
         return tracingService.aggregateDailyUVForApp(start, end, appCode);
     }
 
+    public List<Map<String, Object>> aggregateDailyDeviceForApp(LocalDate start, LocalDate end, String appCode) {
+        return tracingService.aggregateDailyDeviceForApp(start, end, appCode);
+    }
+
+    public List<Map<String, Object>> aggregateDailySessionForApp(LocalDate start, LocalDate end, String appCode) {
+        return tracingService.aggregateDailySessionForApp(start, end, appCode);
+    }
+
+    public List<Map<String, Object>> aggregateDailyClickForApp(LocalDate start, LocalDate end, String appCode) {
+        return tracingService.aggregateDailyClickForApp(start, end, appCode);
+    }
     public List<Map<String, Object>> aggregateDailyErrorForApp(LocalDate start, LocalDate end, String appCode) {
         return tracingService.aggregateDailyErrorForApp(start, end, appCode);
     }
