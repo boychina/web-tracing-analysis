@@ -78,7 +78,8 @@ public class AuthTokenService {
         if (Boolean.TRUE.equals(old.getRevoked())) return Optional.empty();
         if (old.getExpiresAt() != null && old.getExpiresAt().before(new Date())) return Optional.empty();
         Optional<UserAccount> userOpt = userRepo.findById(old.getUserId());
-        if (userOpt.isEmpty()) return Optional.empty();
+        if (!userOpt.isPresent())
+            return Optional.empty();
         RefreshToken next = new RefreshToken();
         next.setUserId(old.getUserId());
         next.setDeviceId(old.getDeviceId());

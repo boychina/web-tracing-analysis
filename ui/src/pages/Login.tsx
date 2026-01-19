@@ -1,6 +1,6 @@
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, Card, Form, Input, message } from "antd";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import client from "../api/client";
 
@@ -11,6 +11,7 @@ type LoginFormValues = {
 
 function Login() {
   const [loading, setLoading] = useState(false);
+  const location = useLocation();
 
   const onFinish = async (values: LoginFormValues) => {
     setLoading(true);
@@ -23,7 +24,19 @@ function Login() {
           localStorage.setItem("AUTH_TOKEN", at);
         }
         message.success("登录成功");
-        window.location.href = "/";
+        const params = new URLSearchParams(location.search);
+        const qRedirect = params.get("redirect");
+        let target = qRedirect || "/";
+        if (!qRedirect) {
+          try {
+            const s = sessionStorage.getItem("REDIRECT_TARGET");
+            if (s) {
+              target = s;
+              sessionStorage.removeItem("REDIRECT_TARGET");
+            }
+          } catch {}
+        }
+        window.location.href = target;
       } else {
         message.error(data.msg || "登录失败");
       }

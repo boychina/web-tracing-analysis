@@ -56,8 +56,16 @@ client.interceptors.response.use(
       if ((original as any)._retry) {
         message.warning("登录已过期，请重新登录");
         if (!redirectingToLogin && window.location.pathname !== "/login") {
+          const target =
+            window.location.pathname +
+            window.location.search +
+            window.location.hash;
+          try {
+            sessionStorage.setItem("REDIRECT_TARGET", target);
+          } catch {}
           redirectingToLogin = true;
-          window.location.href = "/login";
+          const qs = `?redirect=${encodeURIComponent(target)}`;
+          window.location.href = "/login" + qs;
         }
         return Promise.reject(error);
       }
@@ -86,8 +94,16 @@ client.interceptors.response.use(
         .catch(() => {
           message.warning("登录已过期，请重新登录");
           if (!redirectingToLogin && window.location.pathname !== "/login") {
+            const target =
+              window.location.pathname +
+              window.location.search +
+              window.location.hash;
+            try {
+              sessionStorage.setItem("REDIRECT_TARGET", target);
+            } catch {}
             redirectingToLogin = true;
-            window.location.href = "/login";
+            const qs = `?redirect=${encodeURIComponent(target)}`;
+            window.location.href = "/login" + qs;
           }
           return Promise.reject(error);
         })
