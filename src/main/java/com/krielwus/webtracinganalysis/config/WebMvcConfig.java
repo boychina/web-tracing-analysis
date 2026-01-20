@@ -43,6 +43,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addPathPatterns(
                         "/api/user/**",
                         "/api/application/**",
+                        "/api/webTrack/**",
                         "/api/getAllTracingList",
                         "/api/getBaseInfo",
                         "/api/cleanTracingList",

@@ -187,9 +187,25 @@ function MainLayout() {
             <a
               onClick={async () => {
                 try {
-                  await client.post("/logout");
+                  await client.post("/auth/logout");
+                  try {
+                    localStorage.removeItem("AUTH_TOKEN");
+                  } catch {}
+                  try {
+                    const target =
+                      window.location.pathname +
+                      window.location.search +
+                      window.location.hash;
+                    sessionStorage.setItem("REDIRECT_TARGET", target);
+                  } catch {}
                 } finally {
-                  navigate("/login", { replace: true });
+                  const target =
+                    window.location.pathname +
+                    window.location.search +
+                    window.location.hash;
+                  navigate(`/login?redirect=${encodeURIComponent(target)}`, {
+                    replace: true,
+                  });
                 }
               }}
             >
