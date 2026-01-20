@@ -232,9 +232,11 @@ export default function PathAnalysis() {
           </Space>
         }
       >
-        <Skeleton active loading={loading} paragraph={{ rows: 10 }}>
-          <EChart option={sankeyOption} height={480} />
-        </Skeleton>
+        <div style={{ height: 480 }}>
+          <Skeleton active loading={loading} paragraph={{ rows: 10 }} style={{ paddingTop: 12 }}>
+            <EChart option={sankeyOption} height={480} />
+          </Skeleton>
+        </div>
       </Card>
 
       <Card title="关键路径漏斗 (Funnel)" style={{ marginTop: 16 }}>

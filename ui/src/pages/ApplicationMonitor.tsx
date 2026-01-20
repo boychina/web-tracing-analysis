@@ -1143,16 +1143,20 @@ function ApplicationMonitor() {
       <Row gutter={16} style={{ marginTop: 16 }}>
         <Col span={12}>
           <Card title={pvTitle} bodyStyle={{ paddingTop: 0 }}>
-            <Skeleton active loading={pvLoading} paragraph={{ rows: 8 }}>
-              <EChart option={pvOption} height={360} />
-            </Skeleton>
+            <div style={{ height: 360 }}>
+              <Skeleton active loading={pvLoading} paragraph={{ rows: 8 }} style={{ paddingTop: 12 }}>
+                <EChart option={pvOption} height={360} />
+              </Skeleton>
+            </div>
           </Card>
         </Col>
         <Col span={12}>
           <Card title={uvTitle} bodyStyle={{ paddingTop: 0 }}>
-            <Skeleton active loading={uvLoading} paragraph={{ rows: 8 }}>
-              <EChart option={uvOption} height={360} />
-            </Skeleton>
+            <div style={{ height: 360 }}>
+              <Skeleton active loading={uvLoading} paragraph={{ rows: 8 }} style={{ paddingTop: 12 }}>
+                <EChart option={uvOption} height={360} />
+              </Skeleton>
+            </div>
           </Card>
         </Col>
       </Row>
@@ -1160,9 +1164,11 @@ function ApplicationMonitor() {
       <Row gutter={16} style={{ marginTop: 16 }}>
         <Col span={12}>
           <Card title={pagePvTitle} bodyStyle={{ paddingTop: 0 }}>
-            <Skeleton active loading={pagePvLoading} paragraph={{ rows: 8 }}>
-              <EChart option={pagePvOption} height={360} />
-            </Skeleton>
+            <div style={{ height: 360 }}>
+              <Skeleton active loading={pagePvLoading} paragraph={{ rows: 8 }} style={{ paddingTop: 12 }}>
+                <EChart option={pagePvOption} height={360} />
+              </Skeleton>
+            </div>
           </Card>
         </Col>
         <Col span={12}>
@@ -1185,22 +1191,25 @@ function ApplicationMonitor() {
               </Button>
             }
           >
-            <Skeleton
-              active
-              loading={errorTrendLoading}
-              paragraph={{ rows: 8 }}
-            >
-              <EChart
-                option={errorOption}
-                height={360}
-                onChartClick={() => {
-                  if (!currentApp) return;
-                  navigate(
-                    `/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`,
-                  );
-                }}
-              />
-            </Skeleton>
+            <div style={{ height: 360 }}>
+              <Skeleton
+                active
+                loading={errorTrendLoading}
+                paragraph={{ rows: 8 }}
+                style={{ paddingTop: 12 }}
+              >
+                <EChart
+                  option={errorOption}
+                  height={360}
+                  onChartClick={() => {
+                    if (!currentApp) return;
+                    navigate(
+                      `/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`,
+                    );
+                  }}
+                />
+              </Skeleton>
+            </div>
           </Card>
         </Col>
       </Row>

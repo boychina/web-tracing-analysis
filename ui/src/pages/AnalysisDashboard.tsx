@@ -563,8 +563,8 @@ function AnalysisDashboard() {
             statusFlag === "OK"
               ? "green"
               : statusFlag === "LAG"
-              ? "orange"
-              : "default"
+                ? "orange"
+                : "default"
           }
         >
           数据延迟 {delayMinutes} 分钟
@@ -574,16 +574,20 @@ function AnalysisDashboard() {
       <Row gutter={16}>
         <Col xs={24} md={12}>
           <Card title={pvTitle} bodyStyle={{ paddingTop: 0 }}>
-            <Skeleton active loading={pvLoading} paragraph={{ rows: 8 }}>
-              <EChart option={pvOption} height={380} />
-            </Skeleton>
+            <div style={{ height: 380 }}>
+              <Skeleton active loading={pvLoading} paragraph={{ rows: 8 }} style={{ paddingTop: 12 }}>
+                <EChart option={pvOption} height={380} />
+              </Skeleton>
+            </div>
           </Card>
         </Col>
         <Col xs={24} md={12}>
           <Card title={uvTitle} bodyStyle={{ paddingTop: 0 }}>
-            <Skeleton active loading={uvLoading} paragraph={{ rows: 8 }}>
-              <EChart option={uvOption} height={380} />
-            </Skeleton>
+            <div style={{ height: 380 }}>
+              <Skeleton active loading={uvLoading} paragraph={{ rows: 8 }} style={{ paddingTop: 12 }}>
+                <EChart option={uvOption} height={380} />
+              </Skeleton>
+            </div>
           </Card>
         </Col>
       </Row>
@@ -595,13 +599,19 @@ function AnalysisDashboard() {
             <Tooltip
               title={
                 <div style={{ maxWidth: 380 }}>
-                  <div>CRITICAL：影响核心功能/页面不可用（白屏、ChunkLoadError、OOM 等）</div>
-                  <div>FATAL：导致流程中断或不可恢复错误（含 fatal 关键字等）</div>
+                  <div>
+                    CRITICAL：影响核心功能/页面不可用（白屏、ChunkLoadError、OOM
+                    等）
+                  </div>
+                  <div>
+                    FATAL：导致流程中断或不可恢复错误（含 fatal 关键字等）
+                  </div>
                   <div>ERROR：运行时异常、接口 5xx 等</div>
                   <div>WARN：网络超时/失败、接口 4xx 等</div>
                   <div>INFO：仅记录，不影响功能</div>
                   <div style={{ marginTop: 8 }}>
-                    说明：如 payload 已上报 severity/level/errLevel 则优先使用，否则按规则自动分级。
+                    说明：如 payload 已上报 severity/level/errLevel
+                    则优先使用，否则按规则自动分级。
                   </div>
                 </div>
               }
@@ -618,7 +628,7 @@ function AnalysisDashboard() {
           showApp
           onAppClick={(appCode) => {
             navigate(
-              `/application/monitor?appCode=${encodeURIComponent(appCode)}`
+              `/application/monitor?appCode=${encodeURIComponent(appCode)}`,
             );
           }}
           fetchPayload={async (row) => {

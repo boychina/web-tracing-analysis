@@ -149,16 +149,18 @@ export default function ErrorAnalysis() {
           </Space>
         }
       >
-        <Skeleton active loading={loading} paragraph={{ rows: 8 }}>
-          <Row gutter={16}>
-            <Col span={10}>
-              <EChart option={errorPieOption} height={280} />
-            </Col>
-            <Col span={14}>
-              <EChart option={errorTrendOption} height={280} />
-            </Col>
-          </Row>
-        </Skeleton>
+        <div style={{ height: 280 }}>
+          <Skeleton active loading={loading} paragraph={{ rows: 8 }} style={{ paddingTop: 12 }}>
+            <Row gutter={16}>
+              <Col span={10}>
+                <EChart option={errorPieOption} height={280} />
+              </Col>
+              <Col span={14}>
+                <EChart option={errorTrendOption} height={280} />
+              </Col>
+            </Row>
+          </Skeleton>
+        </div>
       </Card>
 
       <Card title="智能聚类异常列表" style={{ marginTop: 16 }}>
