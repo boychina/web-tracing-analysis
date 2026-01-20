@@ -2,7 +2,7 @@
 
 基于 [web-tracing](https://github.com/M-cheng-web/web-tracing) 的 Web 前端观测与分析平台示例项目：覆盖性能、异常、请求、资源、路由、曝光、录屏与行为追踪，并提供可视化大屏与应用监控视图，帮助你快速把“采集 → 入库 → 查询 → 展示”串起来跑通。
 
-![Project Version](https://img.shields.io/badge/project-0.2.0-blue)
+![Project Version](https://img.shields.io/badge/project-0.2.2-blue)
 ![Spring Boot](https://img.shields.io/badge/springboot-3.5.9-brightgreen)
 ![Java](https://img.shields.io/badge/java-17-orange)
 ![Docker Image](https://img.shields.io/badge/docker-boychina%2Fweb--tracing--analysis%3Alatest-2496ED)
@@ -14,7 +14,7 @@
 - 轻量可演示：登录/鉴权/菜单使用静态数据，便于开箱体验与二次改造
 
 ### 版本信息
-- 项目版本：`0.2.0`（`pom.xml`）
+- 项目版本：`0.2.2`（`pom.xml`）
 - Spring Boot：`3.5.9`（`pom.xml`）
 - Java：`17`（`pom.xml`）
 - 前端：React `18` + Vite `5`（`ui/package.json`）

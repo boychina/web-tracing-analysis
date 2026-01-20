@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>org.krielwus</groupId>
 	<artifactId>webTrackAnalysis</artifactId>
-	<version>0.2.0</version>
+	<version>0.2.2</version>
 	<packaging>jar</packaging>
 	<name>web-tracing-analysis</name>
 	<description>web-tracing-analysis</description>
