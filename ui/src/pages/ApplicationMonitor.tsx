@@ -1149,23 +1149,7 @@ function ApplicationMonitor() {
           </Card>
         </Col>
         <Col span={12}>
-          <Card
-            title={uvTitle}
-            bodyStyle={{ paddingTop: 0 }}
-            extra={
-              <Button
-                size="small"
-                onClick={() => {
-                  if (!currentApp) return;
-                  navigate(
-                    `/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`,
-                  );
-                }}
-              >
-                近24小时异常 {errorLast24h}
-              </Button>
-            }
-          >
+          <Card title={uvTitle} bodyStyle={{ paddingTop: 0 }}>
             <Skeleton active loading={uvLoading} paragraph={{ rows: 8 }}>
               <EChart option={uvOption} height={360} />
             </Skeleton>
@@ -1182,7 +1166,25 @@ function ApplicationMonitor() {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title={errorTitle} bodyStyle={{ paddingTop: 0 }}>
+          <Card
+            title={errorTitle}
+            bodyStyle={{ paddingTop: 0 }}
+            extra={
+              <Button
+                size="small"
+                type={errorLast24h > 0 ? "primary" : "default"}
+                danger={errorLast24h > 0}
+                onClick={() => {
+                  if (!currentApp) return;
+                  navigate(
+                    `/application/monitor/errors?appCode=${encodeURIComponent(currentApp)}`,
+                  );
+                }}
+              >
+                近24小时异常 {errorLast24h}
+              </Button>
+            }
+          >
             <Skeleton
               active
               loading={errorTrendLoading}

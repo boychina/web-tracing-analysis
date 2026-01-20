@@ -1,10 +1,11 @@
-import { Button, Layout, Menu, Spin } from "antd";
+import { Button, Layout, Menu, Spin, Dropdown } from "antd";
 import type { MenuProps } from "antd";
-import { ReloadOutlined } from "@ant-design/icons";
+import { ReloadOutlined, UserOutlined } from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import client from "../api/client";
 import Breadcrumbs from "../components/Breadcrumbs";
+import MyDevicesModal from "../components/MyDevicesModal";
 
 type RawMenuItem = {
   id: number | string;
@@ -83,6 +84,7 @@ function MainLayout() {
   const [refreshKey, setRefreshKey] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
+  const [devicesOpen, setDevicesOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -172,7 +174,9 @@ function MainLayout() {
             justifyContent: "space-between",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}
+          >
             <Breadcrumbs />
             <Button
               type="text"
@@ -183,34 +187,50 @@ function MainLayout() {
             </Button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span>{user.username}</span>
-            <a
-              onClick={async () => {
-                try {
-                  await client.post("/auth/logout");
-                  try {
-                    localStorage.removeItem("AUTH_TOKEN");
-                  } catch {}
-                  try {
-                    const target =
-                      window.location.pathname +
-                      window.location.search +
-                      window.location.hash;
-                    sessionStorage.setItem("REDIRECT_TARGET", target);
-                  } catch {}
-                } finally {
-                  const target =
-                    window.location.pathname +
-                    window.location.search +
-                    window.location.hash;
-                  navigate(`/login?redirect=${encodeURIComponent(target)}`, {
-                    replace: true,
-                  });
-                }
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: "me-devices",
+                    label: "我的设备",
+                    onClick: () => setDevicesOpen(true),
+                  },
+                  {
+                    key: "logout",
+                    label: "退出登录",
+                    onClick: async () => {
+                      try {
+                        await client.post("/auth/logout");
+                        try {
+                          localStorage.removeItem("AUTH_TOKEN");
+                        } catch {}
+                        try {
+                          const target =
+                            window.location.pathname +
+                            window.location.search +
+                            window.location.hash;
+                          sessionStorage.setItem("REDIRECT_TARGET", target);
+                        } catch {}
+                      } finally {
+                        const target =
+                          window.location.pathname +
+                          window.location.search +
+                          window.location.hash;
+                        navigate(
+                          `/login?redirect=${encodeURIComponent(target)}`,
+                          { replace: true },
+                        );
+                      }
+                    },
+                  },
+                ],
               }}
             >
-              退出登录
-            </a>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <UserOutlined />
+                <a>{user.username}</a>
+              </div>
+            </Dropdown>
           </div>
         </Layout.Header>
         <Layout.Content style={{ background: "#f5f5f5" }}>
@@ -224,6 +244,10 @@ function MainLayout() {
             <Outlet key={`${location.pathname}:${refreshKey}`} />
           </div>
         </Layout.Content>
+        <MyDevicesModal
+          open={devicesOpen}
+          onClose={() => setDevicesOpen(false)}
+        />
       </Layout>
     </Layout>
   );

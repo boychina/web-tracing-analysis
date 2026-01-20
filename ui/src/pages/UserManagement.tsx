@@ -13,6 +13,8 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import client from "../api/client";
+import dayjs from "dayjs";
+import UAParser from "ua-parser-js";
 
 type UserRow = {
   id: number;
@@ -46,7 +48,8 @@ function UserManagement() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [form] = Form.useForm<UserFormValues>();
-  const [devices, setDevices] = useState<any[]>([]);
+  const [allDevices, setAllDevices] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
 
   const isSuper = me?.role === "SUPER_ADMIN";
   const isAdmin = me?.role === "ADMIN";
@@ -61,9 +64,12 @@ function UserManagement() {
       const meResp = await client.get("/user/me");
       if (meResp.data && meResp.data.code === 1000) {
         setMe(meResp.data.data as MeInfo);
+        const role = (meResp.data.data as MeInfo).role;
+        if (role === "ADMIN" || role === "SUPER_ADMIN") {
+          await loadAllDevices("");
+        }
       }
       await loadUsers();
-      await loadDevices();
     } catch {
       message.error("加载用户数据失败");
     } finally {
@@ -77,20 +83,22 @@ function UserManagement() {
       setList(resp.data.data as UserRow[]);
     }
   }
-  async function loadDevices() {
+  async function loadAllDevices(q?: string) {
     try {
-      const resp = await client.get("/auth/devices");
+      const resp = await client.get("/auth/devices/all", {
+        params: { q: q || "" },
+      });
       if (resp.data && resp.data.code === 1000) {
-        setDevices(resp.data.data || []);
+        setAllDevices(resp.data.data || []);
       }
     } catch {}
   }
-  async function kickDevice(tokenId: number) {
+  async function forceLogoutUser(id: number) {
     try {
-      const resp = await client.post("/auth/kick", { tokenId });
+      const resp = await client.post("/auth/forceLogout", { userId: id });
       if (resp.data && resp.data.code === 1000) {
-        message.success("已踢出设备");
-        await loadDevices();
+        message.success("已强制下线该用户");
+        await loadAllDevices(search);
       } else {
         message.error(resp.data?.msg || "操作失败");
       }
@@ -98,12 +106,12 @@ function UserManagement() {
       message.error("操作失败");
     }
   }
-  async function forceLogoutUser(id: number) {
+  async function kickAnyDevice(tokenId: number) {
     try {
-      const resp = await client.post("/auth/forceLogout", { userId: id });
+      const resp = await client.post("/auth/kickAny", { tokenId });
       if (resp.data && resp.data.code === 1000) {
-        message.success("已强制下线该用户");
-        await loadDevices();
+        message.success("已踢出设备");
+        await loadAllDevices(search);
       } else {
         message.error(resp.data?.msg || "操作失败");
       }
@@ -203,6 +211,20 @@ function UserManagement() {
         }
       }
     });
+  }
+
+  function fmtTime(v?: string) {
+    if (!v) return "-";
+    const d = dayjs(v);
+    return d.isValid() ? d.format("YYYY-MM-DD HH:mm:ss") : "-";
+  }
+  function uaSummary(v?: string) {
+    if (!v) return "-";
+    const r = new UAParser(v).getResult();
+    const b = r.browser.name || "Browser";
+    const bv = r.browser.version ? ` ${r.browser.version}` : "";
+    const os = r.os.name || "OS";
+    return `${b}${bv} / ${os}`;
   }
 
   const columns: ColumnsType<UserRow> = useMemo(
@@ -334,32 +356,83 @@ function UserManagement() {
         dataSource={list}
         pagination={{ pageSize: 10 }}
       />
-      <Card title="当前活跃设备" style={{ marginTop: 16 }}>
-        <Table
-          rowKey="id"
-          dataSource={devices}
-          columns={[
-            { title: "ID", dataIndex: "id", width: 80 },
-            { title: "设备ID", dataIndex: "deviceId" },
-            { title: "最近刷新", dataIndex: "lastRefreshAt" },
-            { title: "过期时间", dataIndex: "expiresAt" },
-            {
-              title: "操作",
-              width: 160,
-              render: (_: any, row: any) => (
-                <Space>
-                  {!row.revoked && (
-                    <Button type="link" size="small" onClick={() => kickDevice(row.id)}>
-                      踢出
-                    </Button>
-                  )}
-                </Space>
-              ),
-            },
-          ]}
-          pagination={{ pageSize: 5 }}
-        />
-      </Card>
+      {(isAdmin || isSuper) && (
+        <Card title="系统活跃设备" style={{ marginTop: 16 }}>
+          <Space style={{ marginBottom: 12 }}>
+            <Input
+              placeholder="按用户名、设备ID、IP、UA搜索"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onPressEnter={() => loadAllDevices(search)}
+              style={{ width: 320 }}
+            />
+            <Button onClick={() => loadAllDevices(search)}>搜索</Button>
+            <Button
+              type="link"
+              onClick={() => {
+                setSearch("");
+                loadAllDevices("");
+              }}
+            >
+              重置
+            </Button>
+          </Space>
+          <Table
+            rowKey="id"
+            dataSource={allDevices}
+            columns={[
+              { title: "ID", dataIndex: "id", width: 80 },
+              { title: "用户ID", dataIndex: "userId", width: 100 },
+              { title: "用户名", dataIndex: "username", width: 140 },
+              { title: "角色", dataIndex: "role", width: 120 },
+              { title: "设备ID", dataIndex: "deviceId" },
+              { title: "IP", dataIndex: "ip", width: 140 },
+              {
+                title: "UA",
+                dataIndex: "userAgent",
+                render: (_: any, row: any) => (
+                  <span title={row.userAgent}>{uaSummary(row.userAgent)}</span>
+                ),
+              },
+              {
+                title: "最近刷新",
+                dataIndex: "lastRefreshAt",
+                width: 180,
+                render: (v: string) => fmtTime(v),
+              },
+              {
+                title: "过期时间",
+                dataIndex: "expiresAt",
+                width: 180,
+                render: (v: string) => fmtTime(v),
+              },
+              {
+                title: "操作",
+                width: 160,
+                render: (_: any, row: any) => (
+                  <Space>
+                    {!row.revoked && (
+                      <Button
+                        type="link"
+                        size="small"
+                        onClick={() =>
+                          Modal.confirm({
+                            title: "确认踢出该设备？",
+                            onOk: () => kickAnyDevice(row.id),
+                          })
+                        }
+                      >
+                        踢出
+                      </Button>
+                    )}
+                  </Space>
+                ),
+              },
+            ]}
+            pagination={{ pageSize: 8 }}
+          />
+        </Card>
+      )}
       <Modal
         open={modalOpen}
         title={editing ? "编辑用户" : "新增用户"}
@@ -381,11 +454,7 @@ function UserManagement() {
           <Form.Item
             label="密码"
             name="password"
-            rules={
-              editing
-                ? []
-                : [{ required: true, message: "请输入密码" }]
-            }
+            rules={editing ? [] : [{ required: true, message: "请输入密码" }]}
           >
             <Input.Password />
           </Form.Item>

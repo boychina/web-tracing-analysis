@@ -144,4 +144,49 @@ public class AuthTokenService {
         rtRepo.saveAll(list);
         return list.size();
     }
+
+    public List<Map<String,Object>> listActiveDevicesAll(String keyword, Long filterUserId) {
+        List<RefreshToken> list = rtRepo.findActive(new Date());
+        Map<Long, UserAccount> userCache = new HashMap<>();
+        List<Map<String,Object>> out = new ArrayList<>();
+        for (RefreshToken rt : list) {
+            if (filterUserId != null && !Objects.equals(rt.getUserId(), filterUserId)) continue;
+            UserAccount ua = userCache.computeIfAbsent(rt.getUserId(), id -> userRepo.findById(id).orElse(null));
+            String uname = ua != null ? ua.getUsername() : null;
+            String role = ua != null ? ua.getRole() : null;
+            boolean match = true;
+            if (keyword != null && !keyword.trim().isEmpty()) {
+                String k = keyword.trim().toLowerCase();
+                String dev = rt.getDeviceId() == null ? "" : rt.getDeviceId().toLowerCase();
+                String ip = rt.getIpAddress() == null ? "" : rt.getIpAddress().toLowerCase();
+                String uaStr = rt.getUserAgent() == null ? "" : rt.getUserAgent().toLowerCase();
+                String unLower = uname == null ? "" : uname.toLowerCase();
+                match = dev.contains(k) || ip.contains(k) || uaStr.contains(k) || unLower.contains(k);
+            }
+            if (!match) continue;
+            Map<String,Object> m = new HashMap<>();
+            m.put("id", rt.getId());
+            m.put("userId", rt.getUserId());
+            m.put("username", uname);
+            m.put("role", role);
+            m.put("deviceId", rt.getDeviceId());
+            m.put("ip", rt.getIpAddress());
+            m.put("userAgent", rt.getUserAgent());
+            m.put("createdAt", rt.getCreatedAt());
+            m.put("expiresAt", rt.getExpiresAt());
+            m.put("lastRefreshAt", rt.getLastRefreshAt());
+            m.put("revoked", rt.getRevoked());
+            out.add(m);
+        }
+        return out;
+    }
+
+    @Transactional
+    public boolean revokeAny(Long tokenId) {
+        RefreshToken rt = rtRepo.findById(tokenId).orElse(null);
+        if (rt == null) return false;
+        rt.setRevoked(true);
+        rtRepo.save(rt);
+        return true;
+    }
 }

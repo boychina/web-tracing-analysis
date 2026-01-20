@@ -146,6 +146,31 @@ public class AuthController {
         int n = tokenService.forceLogoutUser(uid);
         return new ResultInfo(1000, "success", "已强制下线 " + n + " 个设备");
     }
+    
+    @GetMapping("/devices/all")
+    public ResultInfo allDevices(@RequestParam(value = "q", required = false) String q,
+                                 @RequestParam(value = "userId", required = false) Long userId,
+                                 HttpSession session) {
+        String operator = String.valueOf(session.getAttribute("username"));
+        UserAccount op = userService.findByUsername(operator);
+        if (op == null) return new ResultInfo(401, "unauthorized");
+        if (!isAdminOrSuper(op)) return new ResultInfo(403, "forbidden");
+        List<Map<String,Object>> list = tokenService.listActiveDevicesAll(q, userId);
+        return new ResultInfo(1000, "success", list);
+    }
+    
+    @PostMapping("/kickAny")
+    public ResultInfo kickAny(@RequestBody JSONObject body, HttpSession session) {
+        String operator = String.valueOf(session.getAttribute("username"));
+        UserAccount op = userService.findByUsername(operator);
+        if (op == null) return new ResultInfo(401, "unauthorized");
+        if (!isAdminOrSuper(op)) return new ResultInfo(403, "forbidden");
+        Long tokenId = body.getLong("tokenId");
+        if (tokenId == null) return new ResultInfo(400, "tokenId required");
+        boolean ok = tokenService.revokeAny(tokenId);
+        if (!ok) return new ResultInfo(400, "bad request");
+        return new ResultInfo(1000, "success");
+    }
 
     @PostMapping("/sso/callback")
     public ResultInfo ssoCallback(@RequestBody JSONObject body, HttpServletRequest request, HttpServletResponse response, HttpSession session) {
