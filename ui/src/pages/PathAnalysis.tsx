@@ -29,7 +29,7 @@ export default function PathAnalysis() {
   const [appList, setAppList] = useState<any[]>([]);
   const [preset, setPreset] = useState<Preset>("7d");
   const [range, setRange] = useState<[DayjsValue, DayjsValue]>(getPresetRange("7d"));
-  const [startRoutePath, setStartRoutePath] = useState<string>("/login");
+  const [startRoutePath, setStartRoutePath] = useState<string>("");
   const [minStayMs, setMinStayMs] = useState<number>(0);
   const [maxDepth, setMaxDepth] = useState<number>(6);
   const [ignorePatterns, setIgnorePatterns] = useState<string>("");
