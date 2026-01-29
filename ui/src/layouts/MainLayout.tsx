@@ -1,4 +1,4 @@
-import { Button, Layout, Menu, Spin, Dropdown } from "antd";
+import { Button, Layout, Menu, Spin, Dropdown, Tabs } from "antd";
 import type { MenuProps } from "antd";
 import { ReloadOutlined, UserOutlined } from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
@@ -6,6 +6,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import client from "../api/client";
 import Breadcrumbs from "../components/Breadcrumbs";
 import MyDevicesModal from "../components/MyDevicesModal";
+import "./style.less";
 
 type RawMenuItem = {
   id: number | string;
@@ -22,6 +23,12 @@ type UserInfo = {
   id: number;
   username: string;
   role: string;
+};
+
+type VisitedTag = {
+  key: string;
+  path: string;
+  label: string;
 };
 
 const STATIC_MENU: RawMenuItem[] = [
@@ -77,6 +84,19 @@ function buildMenuItems(data: RawMenuItem[]): MenuItem[] {
   });
 }
 
+function buildTagLabel(pathname: string, appCode?: string | null) {
+  if (pathname.startsWith("/analysis/userTrack")) return "用户行为分析";
+  if (pathname.startsWith("/analysis")) return "分析页";
+  if (pathname.startsWith("/application/monitor/errors")) return "异常分析";
+  if (pathname.startsWith("/application/monitor/paths")) return "路径分析";
+  if (pathname.startsWith("/application/monitor")) {
+    return appCode ? `应用监控(${appCode})` : "应用监控";
+  }
+  if (pathname.startsWith("/application")) return "应用管理";
+  if (pathname.startsWith("/user")) return "用户管理";
+  return "管理控制台";
+}
+
 function MainLayout() {
   const [loading, setLoading] = useState(true);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -85,6 +105,19 @@ function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [devicesOpen, setDevicesOpen] = useState(false);
+  const [visitedTags, setVisitedTags] = useState<VisitedTag[]>(() => {
+    try {
+      const raw = sessionStorage.getItem("VISITED_TAGS");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as VisitedTag[];
+      if (Array.isArray(parsed)) {
+        return parsed.filter((t) => t && t.key && t.path && t.label);
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     let active = true;
@@ -119,6 +152,80 @@ function MainLayout() {
     const path = location.pathname || "/";
     return [path];
   }, [location.pathname]);
+
+  const activeKey = `${location.pathname}${location.search || ""}`;
+
+  useEffect(() => {
+    const appCode = new URLSearchParams(location.search).get("appCode");
+    const label = buildTagLabel(location.pathname, appCode);
+    setVisitedTags((prev) => {
+      if (prev.some((t) => t.key === activeKey)) return prev;
+      const next = [...prev, { key: activeKey, path: activeKey, label }];
+      try {
+        sessionStorage.setItem("VISITED_TAGS", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [activeKey, location.pathname, location.search]);
+
+  const persistTags = (next: VisitedTag[]) => {
+    try {
+      sessionStorage.setItem("VISITED_TAGS", JSON.stringify(next));
+    } catch {}
+  };
+
+  const closeTag = (targetKey: string) => {
+    setVisitedTags((prev) => {
+      const idx = prev.findIndex((t) => t.key === targetKey);
+      const next = prev.filter((t) => t.key !== targetKey);
+      persistTags(next);
+      if (targetKey === activeKey) {
+        if (next.length > 0) {
+          const nextIndex = idx > 0 ? idx - 1 : 0;
+          const nextPath = next[nextIndex]?.path || "/analysis";
+          navigate(nextPath);
+        } else {
+          navigate("/analysis");
+        }
+      }
+      return next;
+    });
+  };
+
+  const closeOthers = () => {
+    setVisitedTags((prev) => {
+      const current = prev.find((t) => t.key === activeKey);
+      const next = current ? [current] : [];
+      persistTags(next);
+      return next;
+    });
+  };
+
+  const closeAll = () => {
+    setVisitedTags([]);
+    persistTags([]);
+    navigate("/analysis");
+  };
+
+  const closeRight = () => {
+    setVisitedTags((prev) => {
+      const idx = prev.findIndex((t) => t.key === activeKey);
+      if (idx === -1) return prev;
+      const next = prev.slice(0, idx + 1);
+      persistTags(next);
+      return next;
+    });
+  };
+
+  const closeLeft = () => {
+    setVisitedTags((prev) => {
+      const idx = prev.findIndex((t) => t.key === activeKey);
+      if (idx === -1) return prev;
+      const next = prev.slice(idx);
+      persistTags(next);
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -233,11 +340,40 @@ function MainLayout() {
             </Dropdown>
           </div>
         </Layout.Header>
+        <div
+          style={{
+            background: "#fff",
+            padding: "0 16px",
+            borderBottom: "1px solid #f0f0f0",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Tabs
+            type="editable-card"
+            hideAdd
+            size="small"
+            activeKey={activeKey}
+            items={visitedTags.map((t) => ({
+              key: t.key,
+              label: t.label,
+            }))}
+            onChange={(key) => {
+              const target = visitedTags.find((t) => t.key === key);
+              navigate(target?.path || String(key));
+            }}
+            onEdit={(key, action) => {
+              if (action === "remove") closeTag(String(key));
+            }}
+            style={{ flex: 1 }}
+          />
+        </div>
         <Layout.Content style={{ background: "#f5f5f5" }}>
           <div
             style={{
               padding: "24px",
-              height: "calc(100vh - 64px)",
+              height: "calc(100vh - 104px)",
               overflow: "auto",
             }}
           >

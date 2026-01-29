@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button, Card, Col, Input, InputNumber, Row, Segmented, Skeleton, Space, Typography, Select } from "antd";
 import EChart from "../components/EChart";
 import client from "../api/client";
@@ -24,6 +24,7 @@ function getPresetRange(preset: Preset): [DayjsValue, DayjsValue] {
 export default function PathAnalysis() {
   const [searchParams] = useSearchParams();
   const urlAppCode = searchParams.get("appCode");
+  const navigate = useNavigate();
   
   const [appCode, setAppCode] = useState<string>(urlAppCode || "");
   const [appList, setAppList] = useState<any[]>([]);
@@ -173,25 +174,25 @@ export default function PathAnalysis() {
         extra={
           <Space size={8}>
             <Space>
-               <span>分组:</span>
-               <Select 
-                 value={groupBy} 
-                 onChange={setGroupBy} 
-                 style={{ width: 100 }}
-                 options={[
-                   { label: "无", value: "NONE" },
-                   { label: "用户", value: "USER" },
-                   { label: "参数", value: "PARAM" },
-                 ]}
-               />
-               {groupBy === "PARAM" && (
-                 <Input 
-                   placeholder="参数名" 
-                   value={groupParamName} 
-                   onChange={e => setGroupParamName(e.target.value)} 
-                   style={{ width: 100 }} 
-                 />
-               )}
+              <span>分组:</span>
+              <Select
+                value={groupBy}
+                onChange={setGroupBy}
+                style={{ width: 100 }}
+                options={[
+                  { label: "无", value: "NONE" },
+                  { label: "用户", value: "USER" },
+                  { label: "参数", value: "PARAM" },
+                ]}
+              />
+              {groupBy === "PARAM" && (
+                <Input
+                  placeholder="参数名"
+                  value={groupParamName}
+                  onChange={(e) => setGroupParamName(e.target.value)}
+                  style={{ width: 100 }}
+                />
+              )}
             </Space>
             <Segmented
               value={preset}
@@ -220,11 +221,21 @@ export default function PathAnalysis() {
             />
             <Space>
               <span>最小停留</span>
-              <InputNumber min={0} value={minStayMs} onChange={(v) => setMinStayMs(Number(v || 0))} style={{ width: 70 }} />
+              <InputNumber
+                min={0}
+                value={minStayMs}
+                onChange={(v) => setMinStayMs(Number(v || 0))}
+                style={{ width: 70 }}
+              />
             </Space>
             <Space>
               <span>深度</span>
-              <InputNumber min={1} value={maxDepth} onChange={(v) => setMaxDepth(Number(v || 6))} style={{ width: 60 }} />
+              <InputNumber
+                min={1}
+                value={maxDepth}
+                onChange={(v) => setMaxDepth(Number(v || 6))}
+                style={{ width: 60 }}
+              />
             </Space>
             <Button type="primary" onClick={refresh} loading={loading}>
               更新
@@ -233,8 +244,42 @@ export default function PathAnalysis() {
         }
       >
         <div style={{ height: 480 }}>
-          <Skeleton active loading={loading} paragraph={{ rows: 10 }} style={{ paddingTop: 12 }}>
-            <EChart option={sankeyOption} height={480} />
+          <Skeleton
+            active
+            loading={loading}
+            paragraph={{ rows: 10 }}
+            style={{ paddingTop: 12 }}
+          >
+            {nodes.length === 0 && links.length === 0 ? (
+              <div
+                style={{
+                  height: 480,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                }}
+              >
+                <Typography.Text type="secondary">暂无路径数据</Typography.Text>
+                <Typography.Text type="secondary">
+                  可尝试调整时间范围、起始页路由或忽略规则
+                </Typography.Text>
+                <Space style={{ marginTop: 8 }}>
+                  <Button size="small" onClick={refresh}>
+                    重新加载
+                  </Button>
+                  <Button
+                    size="small"
+                    type="link"
+                    onClick={() => navigate("/application")}
+                  >
+                    前往应用管理
+                  </Button>
+                </Space>
+              </div>
+            ) : (
+              <EChart option={sankeyOption} height={480} />
+            )}
           </Skeleton>
         </div>
       </Card>
