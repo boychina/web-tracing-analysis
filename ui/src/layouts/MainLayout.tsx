@@ -2,7 +2,7 @@ import { Button, Layout, Menu, Spin, Dropdown, Tabs } from "antd";
 import type { MenuProps } from "antd";
 import { ReloadOutlined, UserOutlined } from "@ant-design/icons";
 import { useEffect, useMemo, useState } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useOutlet } from "react-router-dom";
 import client from "../api/client";
 import Breadcrumbs from "../components/Breadcrumbs";
 import MyDevicesModal from "../components/MyDevicesModal";
@@ -29,6 +29,11 @@ type VisitedTag = {
   key: string;
   path: string;
   label: string;
+};
+
+type CachedView = {
+  key: string;
+  element: React.ReactNode;
 };
 
 const STATIC_MENU: RawMenuItem[] = [
@@ -84,17 +89,31 @@ function buildMenuItems(data: RawMenuItem[]): MenuItem[] {
   });
 }
 
-function buildTagLabel(pathname: string, appCode?: string | null) {
+function buildTagLabel(
+  pathname: string,
+  appCode?: string | null,
+  appNameMap?: Record<string, string>,
+) {
   if (pathname.startsWith("/analysis/userTrack")) return "用户行为分析";
   if (pathname.startsWith("/analysis")) return "分析页";
   if (pathname.startsWith("/application/monitor/errors")) return "异常分析";
   if (pathname.startsWith("/application/monitor/paths")) return "路径分析";
   if (pathname.startsWith("/application/monitor")) {
-    return appCode ? `应用监控(${appCode})` : "应用监控";
+    const name = appCode ? appNameMap?.[appCode] : "";
+    return name || appCode || "应用监控";
   }
   if (pathname.startsWith("/application")) return "应用管理";
   if (pathname.startsWith("/user")) return "用户管理";
   return "管理控制台";
+}
+
+function readCachedAppCode() {
+  try {
+    const v = localStorage.getItem("web-tracing-ui.applicationMonitor.appCode");
+    return v ? v.trim() : "";
+  } catch {
+    return "";
+  }
 }
 
 function MainLayout() {
@@ -105,6 +124,8 @@ function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [devicesOpen, setDevicesOpen] = useState(false);
+  const outlet = useOutlet();
+  const [appNameMap, setAppNameMap] = useState<Record<string, string>>({});
   const [visitedTags, setVisitedTags] = useState<VisitedTag[]>(() => {
     try {
       const raw = sessionStorage.getItem("VISITED_TAGS");
@@ -118,6 +139,30 @@ function MainLayout() {
       return [];
     }
   });
+  const [cachedViews, setCachedViews] = useState<CachedView[]>([]);
+
+  const resolvedLocation = useMemo(() => {
+    if (!location.pathname.startsWith("/application/monitor")) {
+      return {
+        path: `${location.pathname}${location.search || ""}`,
+        appCode: null,
+      };
+    }
+    const params = new URLSearchParams(location.search);
+    const appCode = params.get("appCode")?.trim();
+    if (appCode) {
+      return { path: `${location.pathname}${location.search || ""}`, appCode };
+    }
+    const cached = readCachedAppCode();
+    if (cached) {
+      const next = `/application/monitor?appCode=${encodeURIComponent(cached)}`;
+      return { path: next, appCode: cached };
+    }
+    return {
+      path: `${location.pathname}${location.search || ""}`,
+      appCode: null,
+    };
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     let active = true;
@@ -148,25 +193,82 @@ function MainLayout() {
     };
   }, [navigate]);
 
+  useEffect(() => {
+    let active = true;
+    async function loadApps() {
+      try {
+        const resp = await client.get("/application/list");
+        if (!active) return;
+        if (resp.data?.code === 1000 && Array.isArray(resp.data.data)) {
+          const map: Record<string, string> = {};
+          for (const item of resp.data.data as any[]) {
+            if (item?.appCode) map[item.appCode] = item.appName || item.appCode;
+          }
+          setAppNameMap(map);
+        }
+      } catch {}
+    }
+    loadApps();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const selectedKeys = useMemo(() => {
     const path = location.pathname || "/";
     return [path];
   }, [location.pathname]);
 
-  const activeKey = `${location.pathname}${location.search || ""}`;
+  const activeKey = resolvedLocation.path;
 
   useEffect(() => {
-    const appCode = new URLSearchParams(location.search).get("appCode");
-    const label = buildTagLabel(location.pathname, appCode);
+    if (
+      location.pathname.startsWith("/application/monitor") &&
+      resolvedLocation.path !== `${location.pathname}${location.search || ""}`
+    ) {
+      navigate(resolvedLocation.path, { replace: true });
+      return;
+    }
+    const label = buildTagLabel(
+      location.pathname,
+      resolvedLocation.appCode,
+      appNameMap,
+    );
     setVisitedTags((prev) => {
-      if (prev.some((t) => t.key === activeKey)) return prev;
+      const exists = prev.find((t) => t.key === activeKey);
+      if (exists) {
+        if (exists.label !== label) {
+          const next = prev.map((t) =>
+            t.key === activeKey ? { ...t, label } : t,
+          );
+          try {
+            sessionStorage.setItem("VISITED_TAGS", JSON.stringify(next));
+          } catch {}
+          return next;
+        }
+        return prev;
+      }
       const next = [...prev, { key: activeKey, path: activeKey, label }];
       try {
         sessionStorage.setItem("VISITED_TAGS", JSON.stringify(next));
       } catch {}
       return next;
     });
-  }, [activeKey, location.pathname, location.search]);
+  }, [
+    activeKey,
+    appNameMap,
+    location.pathname,
+    location.search,
+    navigate,
+    resolvedLocation,
+  ]);
+
+  useEffect(() => {
+    setCachedViews((prev) => {
+      if (prev.some((item) => item.key === activeKey)) return prev;
+      return [...prev, { key: activeKey, element: outlet }];
+    });
+  }, [activeKey, outlet, refreshKey]);
 
   const persistTags = (next: VisitedTag[]) => {
     try {
@@ -179,6 +281,7 @@ function MainLayout() {
       const idx = prev.findIndex((t) => t.key === targetKey);
       const next = prev.filter((t) => t.key !== targetKey);
       persistTags(next);
+      setCachedViews((views) => views.filter((v) => v.key !== targetKey));
       if (targetKey === activeKey) {
         if (next.length > 0) {
           const nextIndex = idx > 0 ? idx - 1 : 0;
@@ -197,6 +300,9 @@ function MainLayout() {
       const current = prev.find((t) => t.key === activeKey);
       const next = current ? [current] : [];
       persistTags(next);
+      setCachedViews((views) =>
+        current ? views.filter((v) => v.key === current.key) : [],
+      );
       return next;
     });
   };
@@ -204,6 +310,7 @@ function MainLayout() {
   const closeAll = () => {
     setVisitedTags([]);
     persistTags([]);
+    setCachedViews([]);
     navigate("/analysis");
   };
 
@@ -213,6 +320,8 @@ function MainLayout() {
       if (idx === -1) return prev;
       const next = prev.slice(0, idx + 1);
       persistTags(next);
+      const keepKeys = new Set(next.map((t) => t.key));
+      setCachedViews((views) => views.filter((v) => keepKeys.has(v.key)));
       return next;
     });
   };
@@ -223,6 +332,8 @@ function MainLayout() {
       if (idx === -1) return prev;
       const next = prev.slice(idx);
       persistTags(next);
+      const keepKeys = new Set(next.map((t) => t.key));
+      setCachedViews((views) => views.filter((v) => keepKeys.has(v.key)));
       return next;
     });
   };
@@ -288,7 +399,12 @@ function MainLayout() {
             <Button
               type="text"
               icon={<ReloadOutlined />}
-              onClick={() => setRefreshKey((v) => v + 1)}
+              onClick={() => {
+                setCachedViews((prev) =>
+                  prev.filter((item) => item.key !== activeKey),
+                );
+                setRefreshKey((v) => v + 1);
+              }}
             >
               刷新
             </Button>
@@ -377,7 +493,14 @@ function MainLayout() {
               overflow: "auto",
             }}
           >
-            <Outlet key={`${location.pathname}:${refreshKey}`} />
+            {cachedViews.map((item) => (
+              <div
+                key={item.key}
+                style={{ display: item.key === activeKey ? "block" : "none" }}
+              >
+                {item.element}
+              </div>
+            ))}
           </div>
         </Layout.Content>
         <MyDevicesModal

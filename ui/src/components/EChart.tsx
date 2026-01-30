@@ -19,8 +19,16 @@ function EChart({ option, height = 360, onChartClick }: Props) {
       instance.resize();
     };
     window.addEventListener("resize", handleResize);
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            instance.resize();
+          })
+        : null;
+    if (observer) observer.observe(containerRef.current);
     return () => {
       window.removeEventListener("resize", handleResize);
+      if (observer) observer.disconnect();
       instance.dispose();
       instanceRef.current = null;
     };
