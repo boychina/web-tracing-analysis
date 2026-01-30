@@ -1,13 +1,22 @@
 package com.krielwus.webtracinganalysis.config;
 
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.Ordered;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 /**
  * @ClassName WebMvcConfig
@@ -19,6 +28,25 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final JwtAuthInterceptor jwtAuthInterceptor;
     public WebMvcConfig(JwtAuthInterceptor jwtAuthInterceptor) {
         this.jwtAuthInterceptor = jwtAuthInterceptor;
+    }
+
+    @Bean
+    public FilterRegistrationBean<OncePerRequestFilter> privateNetworkAccessFilter() {
+        OncePerRequestFilter filter = new OncePerRequestFilter() {
+            @Override
+            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                    FilterChain filterChain)
+                    throws ServletException, IOException {
+                if ("true".equalsIgnoreCase(request.getHeader("Access-Control-Request-Private-Network"))) {
+                    response.setHeader("Access-Control-Allow-Private-Network", "true");
+                }
+                filterChain.doFilter(request, response);
+            }
+        };
+        FilterRegistrationBean<OncePerRequestFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(filter);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registration;
     }
 
     @Bean
