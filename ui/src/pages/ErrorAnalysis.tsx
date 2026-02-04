@@ -150,7 +150,12 @@ export default function ErrorAnalysis() {
         }
       >
         <div style={{ height: 280 }}>
-          <Skeleton active loading={loading} paragraph={{ rows: 8 }} style={{ paddingTop: 12 }}>
+          <Skeleton
+            active
+            loading={loading}
+            paragraph={{ rows: 7 }}
+            style={{ paddingTop: 12 }}
+          >
             <Row gutter={16}>
               <Col span={10}>
                 <EChart option={errorPieOption} height={280} />
