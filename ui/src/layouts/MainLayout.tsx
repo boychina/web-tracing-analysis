@@ -172,6 +172,9 @@ function MainLayout() {
         const meResp = await client.get("/user/me");
         if (!active) return;
         if (meResp.data.code !== 1000) {
+          try {
+            sessionStorage.removeItem("VISITED_TAGS");
+          } catch {}
           setUser(null);
           setMenuItems([]);
           navigate("/login", { replace: true });
@@ -181,6 +184,9 @@ function MainLayout() {
         setMenuItems(buildMenuItems(STATIC_MENU));
       } catch {
         if (!active) return;
+        try {
+          sessionStorage.removeItem("VISITED_TAGS");
+        } catch {}
         setUser(null);
         setMenuItems([]);
         navigate("/login", { replace: true });

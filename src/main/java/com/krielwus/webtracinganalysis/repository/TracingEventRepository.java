@@ -286,6 +286,7 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
                     + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) AS request_uri\n"
                     + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
                     + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
+                    + "AND (payload IS NULL OR JSON_VALID(payload))\n"
                     + "ORDER BY created_at DESC", nativeQuery = true)
     java.util.List<Object[]> findRecentErrorsLiteByAppCode(@Param("appCode") String appCode, Pageable pageable);
 
@@ -295,6 +296,7 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
     @Query(value = "SELECT COUNT(*)\n"
                     + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
                     + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
+                    + "AND (payload IS NULL OR JSON_VALID(payload))\n"
                     + "AND (:errorCode IS NULL OR :errorCode = '' OR JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) = :errorCode)\n"
                     + "AND (:severity IS NULL OR :severity = '' OR (\n"
                     + "  CASE\n"
@@ -380,6 +382,7 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
                     + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) AS request_uri\n"
                     + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
                     + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
+                    + "AND (payload IS NULL OR JSON_VALID(payload))\n"
                     + "ORDER BY created_at DESC", nativeQuery = true)
     java.util.List<Object[]> findErrorPageLiteByAppCode(@Param("appCode") String appCode, Pageable pageable);
 
@@ -422,6 +425,7 @@ public interface TracingEventRepository extends JpaRepository<TracingEvent, Long
                     + "JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.triggerPageUrl'), JSON_EXTRACT(payload, '$.requestUri'), JSON_EXTRACT(payload, '$.pageUrl'), JSON_EXTRACT(payload, '$.url'))) AS request_uri\n"
                     + "FROM trace_event FORCE INDEX (idx_appcode_created_at)\n"
                     + "WHERE app_code = :appCode AND event_type = 'ERROR'\n"
+                    + "AND (payload IS NULL OR JSON_VALID(payload))\n"
                     + "AND (:errorCode IS NULL OR :errorCode = '' OR JSON_UNQUOTE(COALESCE(JSON_EXTRACT(payload, '$.errorCode'), JSON_EXTRACT(payload, '$.code'), JSON_EXTRACT(payload, '$.eventId'))) = :errorCode)\n"
                     + "AND (:severity IS NULL OR :severity = '' OR (\n"
                     + "  CASE\n"

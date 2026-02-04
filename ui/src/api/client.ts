@@ -9,7 +9,17 @@ const client = axios.create({
 
 let redirectingToLogin = false;
 let refreshing = false;
-let pendingQueue: Array<() => void> = [];
+let pendingQueue: Array<{
+  config: any;
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+function clearVisitedTags() {
+  try {
+    sessionStorage.removeItem("VISITED_TAGS");
+  } catch {}
+}
 
 client.interceptors.request.use(
   (config) => {
@@ -63,6 +73,7 @@ client.interceptors.response.use(
           try {
             sessionStorage.setItem("REDIRECT_TARGET", target);
           } catch {}
+          clearVisitedTags();
           redirectingToLogin = true;
           const qs = `?redirect=${encodeURIComponent(target)}`;
           window.location.href = "/login" + qs;
@@ -72,9 +83,7 @@ client.interceptors.response.use(
       (original as any)._retry = true;
       if (refreshing) {
         return new Promise((resolve, reject) => {
-          pendingQueue.push(() => {
-            client(original!).then(resolve).catch(reject);
-          });
+          pendingQueue.push({ config: original, resolve, reject });
         });
       }
       refreshing = true;
@@ -84,14 +93,20 @@ client.interceptors.response.use(
           const at = (resp.data as any)?.data?.accessToken;
           if (at) {
             localStorage.setItem("AUTH_TOKEN", at);
-            pendingQueue.forEach((fn) => fn());
+            const queue = [...pendingQueue];
             pendingQueue = [];
-            return client(original!);
+            queue.forEach((item) => {
+              client(item.config).then(item.resolve).catch(item.reject);
+            });
+            return client(original);
           } else {
             throw new Error("no access token");
           }
         })
-        .catch(() => {
+        .catch((refreshError) => {
+          const queue = [...pendingQueue];
+          pendingQueue = [];
+          queue.forEach((item) => item.reject(refreshError));
           message.warning("登录已过期，请重新登录");
           if (!redirectingToLogin && window.location.pathname !== "/login") {
             const target =
@@ -101,6 +116,7 @@ client.interceptors.response.use(
             try {
               sessionStorage.setItem("REDIRECT_TARGET", target);
             } catch {}
+            clearVisitedTags();
             redirectingToLogin = true;
             const qs = `?redirect=${encodeURIComponent(target)}`;
             window.location.href = "/login" + qs;
