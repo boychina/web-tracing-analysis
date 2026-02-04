@@ -430,6 +430,9 @@ function MainLayout() {
                           localStorage.removeItem("AUTH_TOKEN");
                         } catch {}
                         try {
+                          sessionStorage.removeItem("VISITED_TAGS");
+                        } catch {}
+                        try {
                           const target =
                             window.location.pathname +
                             window.location.search +
