@@ -93,7 +93,8 @@ function buildTagLabel(
   pathname: string,
   appCode?: string | null,
   appNameMap?: Record<string, string>,
-) {
+): string | null {
+  if (pathname === "/") return null;
   if (pathname.startsWith("/analysis/userTrack")) return "用户行为分析";
   if (pathname.startsWith("/analysis")) return "分析页";
   if (pathname.startsWith("/application/monitor/errors")) return "异常分析";
@@ -104,7 +105,7 @@ function buildTagLabel(
   }
   if (pathname.startsWith("/application")) return "应用管理";
   if (pathname.startsWith("/user")) return "用户管理";
-  return "管理控制台";
+  return null;
 }
 
 function readCachedAppCode() {
@@ -234,6 +235,7 @@ function MainLayout() {
       resolvedLocation.appCode,
       appNameMap,
     );
+    if (!label) return;
     setVisitedTags((prev) => {
       const exists = prev.find((t) => t.key === activeKey);
       if (exists) {

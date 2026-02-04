@@ -4,6 +4,9 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 type Crumb = { title: string; to?: string };
 
 function buildCrumbs(pathname: string, appCode?: string | null): Crumb[] {
+  if (pathname === "/") {
+    return [];
+  }
   if (pathname.startsWith("/analysis/userTrack")) {
     return [
       { title: "分析页", to: "/analysis" },
@@ -56,4 +59,3 @@ export default function Breadcrumbs() {
     </div>
   );
 }
-
