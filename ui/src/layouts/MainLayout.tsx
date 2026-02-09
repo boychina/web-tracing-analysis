@@ -156,7 +156,7 @@ function MainLayout() {
     }
     const cached = readCachedAppCode();
     if (cached) {
-      const next = `/application/monitor?appCode=${encodeURIComponent(cached)}`;
+      const next = `${location.pathname}?appCode=${encodeURIComponent(cached)}`;
       return { path: next, appCode: cached };
     }
     return {
