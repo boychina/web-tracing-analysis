@@ -71,6 +71,9 @@
 - 构建并启动：
   - `./mvnw -DskipTests clean package`
   - `java -jar target/web-tracing-analysis.jar`
+- 直接运行（不打包）：
+  - `./mvnw -DskipTests spring-boot:run`
+  - 验证：`curl -I http://127.0.0.1:17001/`
 
 ### 前端开发（可选）
 - 安装依赖：`pnpm -C ui install`
